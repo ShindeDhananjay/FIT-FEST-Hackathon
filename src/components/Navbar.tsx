@@ -17,6 +17,9 @@ import {
   ExternalLink,
   User,
   LogOut,
+  Truck,
+  ChevronRight,
+  Gift,
 } from 'lucide-react';
 import { CitizenImpactProfile, CitizenUser } from '@/types/waste';
 
@@ -45,21 +48,43 @@ export const Navbar: React.FC<NavbarProps> = ({
 }) => {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
-  const navItems = [
-    { id: 'home' as ActiveTab, label: 'Home', icon: Home },
-    { id: 'request' as ActiveTab, label: 'Request Pickup', icon: PlusCircle },
-    { id: 'track' as ActiveTab, label: 'Track Pickup', icon: MapPin },
-    { id: 'history' as ActiveTab, label: 'History', icon: History },
-    { id: 'analytics' as ActiveTab, label: 'Impact', icon: BarChart3 },
+  const navItems = currentUser
+    ? [
+        { id: 'home' as ActiveTab, label: 'Home', icon: Home },
+        { id: 'request' as ActiveTab, label: 'Request Pickup', icon: PlusCircle },
+        { id: 'track' as ActiveTab, label: 'Track Pickup', icon: MapPin },
+        { id: 'history' as ActiveTab, label: 'History', icon: History },
+        { id: 'analytics' as ActiveTab, label: 'Impact', icon: BarChart3 },
+      ]
+    : [{ id: 'home' as ActiveTab, label: 'Home', icon: Home }];
+
+  const publicLinks = [
+    { label: 'How It Works', targetId: 'how-it-works' },
+    { label: 'Categories', targetId: 'categories' },
+    { label: 'Rewards 🎁', targetId: 'rewards' },
+    { label: 'Why EcoLoop', targetId: 'why-ecoloop' },
   ];
 
   const handleNavClick = (tab: ActiveTab) => {
-    if (tab === 'request' && !currentUser) {
-      setActiveTab('login');
-    } else {
-      setActiveTab(tab);
-    }
+    setActiveTab(tab);
     setMobileMenuOpen(false);
+  };
+
+  const handleScrollTo = (targetId: string) => {
+    setMobileMenuOpen(false);
+    const scrollTarget = () => {
+      const el = document.getElementById(targetId);
+      if (el) {
+        el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      }
+    };
+
+    if (activeTab !== 'home') {
+      setActiveTab('home');
+      setTimeout(scrollTarget, 120);
+    } else {
+      scrollTarget();
+    }
   };
 
   return (
@@ -93,59 +118,108 @@ export const Navbar: React.FC<NavbarProps> = ({
             </div>
 
             {/* Desktop Navigation */}
-            <nav className="hidden md:flex items-center gap-1 bg-gray-50/80 p-1 rounded-xl border border-gray-100">
-              {navItems.map((item) => {
-                const isActive = activeTab === item.id;
-                return (
+            <nav className="hidden md:flex items-center gap-1 bg-gray-50/80 p-1 rounded-xl border border-gray-100 shrink-0">
+              {currentUser ? (
+                // Authenticated Application Tabs — Cleanly sized, includes Rewards 🎁 but NOT Categories or Why EcoLoop
+                <>
+                  {navItems.map((item) => {
+                    const isActive = activeTab === item.id;
+                    return (
+                      <button
+                        key={item.id}
+                        onClick={() => handleNavClick(item.id)}
+                        className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-all cursor-pointer whitespace-nowrap shrink-0 ${
+                          isActive
+                            ? 'bg-white text-emerald-700 shadow-sm shadow-black/5 font-bold'
+                            : 'text-gray-500 hover:text-gray-900 hover:bg-white/60'
+                        }`}
+                      >
+                        <item.icon className={`h-3.5 w-3.5 ${isActive ? 'text-emerald-600' : 'text-gray-400'}`} />
+                        <span>{item.label}</span>
+                      </button>
+                    );
+                  })}
                   <button
-                    key={item.id}
-                    onClick={() => handleNavClick(item.id)}
+                    onClick={() => handleScrollTo('rewards')}
+                    className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-bold text-amber-900 bg-amber-50 hover:bg-amber-100 border border-amber-200/80 transition-colors cursor-pointer whitespace-nowrap shrink-0"
+                    title="View & Claim Recycled Rewards"
+                  >
+                    <Gift className="h-3.5 w-3.5 text-amber-600" />
+                    <span>Rewards 🎁</span>
+                  </button>
+                </>
+              ) : (
+                // Unauthenticated Landing Page Links
+                <>
+                  <button
+                    onClick={() => setActiveTab('home')}
                     className={`flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg text-xs font-semibold transition-all cursor-pointer ${
-                      isActive
+                      activeTab === 'home'
                         ? 'bg-white text-emerald-700 shadow-sm shadow-black/5 font-bold'
                         : 'text-gray-500 hover:text-gray-900 hover:bg-white/60'
                     }`}
                   >
-                    <item.icon className={`h-3.5 w-3.5 ${isActive ? 'text-emerald-600' : 'text-gray-400'}`} />
-                    <span>{item.label}</span>
+                    <Home className="h-3.5 w-3.5 text-emerald-600" />
+                    <span>Home</span>
                   </button>
-                );
-              })}
+                  {publicLinks.map((link) => (
+                    <button
+                      key={link.targetId}
+                      onClick={() => handleScrollTo(link.targetId)}
+                      className="px-3 py-1.5 rounded-lg text-xs font-semibold text-gray-600 hover:text-gray-900 hover:bg-white/60 transition-colors cursor-pointer"
+                    >
+                      {link.label}
+                    </button>
+                  ))}
+                </>
+              )}
             </nav>
 
             {/* Right side actions */}
             <div className="flex items-center gap-2 sm:gap-3">
-              {/* AI Scanner */}
-              <button
-                onClick={onOpenAiScanner}
-                className="hidden sm:inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold bg-gradient-to-r from-emerald-50 to-teal-50 text-emerald-700 border border-emerald-200/60 hover:border-emerald-300 hover:shadow-xs transition-all cursor-pointer"
-                title="AI Material Detection Scanner"
+              {/* Authenticated Only: AI Scanner & EcoPoints */}
+              {currentUser && (
+                <>
+                  <button
+                    onClick={onOpenAiScanner}
+                    className="hidden sm:inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold bg-gradient-to-r from-emerald-50 to-teal-50 text-emerald-700 border border-emerald-200/60 hover:border-emerald-300 hover:shadow-xs transition-all cursor-pointer"
+                    title="AI Material Detection Scanner"
+                  >
+                    <Sparkles className="h-3.5 w-3.5 text-emerald-600 animate-pulse" />
+                    <span>AI Scanner</span>
+                  </button>
+
+                  <div
+                    onClick={() => handleNavClick('analytics')}
+                    className="flex items-center gap-1.5 px-2.5 sm:px-3 py-1.5 rounded-lg bg-emerald-500/10 border border-emerald-500/20 cursor-pointer hover:bg-emerald-500/15 transition-colors"
+                    title="Your EcoPoints balance"
+                  >
+                    <Leaf className="h-3.5 w-3.5 text-emerald-600 fill-emerald-500/30" />
+                    <span className="text-xs font-black text-emerald-800 tracking-tight">{userProfile.ecoPoints}</span>
+                    <span className="text-[10px] font-bold text-emerald-600/80 uppercase hidden sm:inline">pts</span>
+                  </div>
+                </>
+              )}
+
+              {/* Dedicated /driver link */}
+              <Link
+                href="/driver"
+                className="hidden lg:inline-flex items-center gap-1.5 px-2.5 sm:px-3 py-1.5 rounded-lg text-xs font-semibold bg-emerald-50 hover:bg-emerald-100/80 text-emerald-800 border border-emerald-200/80 transition-all shadow-2xs cursor-pointer shrink-0"
+                title="Delivery Partner Portal at /driver"
               >
-                <Sparkles className="h-3.5 w-3.5 text-emerald-600 animate-pulse" />
-                <span>AI Scanner</span>
-              </button>
+                <Truck className="h-3.5 w-3.5 text-emerald-600" />
+                <span>Driver</span>
+              </Link>
 
               {/* Dedicated /admin link */}
               <Link
                 href="/admin"
-                className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold bg-slate-100 hover:bg-slate-200/90 text-slate-700 border border-slate-200/80 transition-all shadow-xs cursor-pointer"
+                className="hidden lg:inline-flex items-center gap-1.5 px-2.5 sm:px-3 py-1.5 rounded-lg text-xs font-semibold bg-slate-100 hover:bg-slate-200/90 text-slate-700 border border-slate-200/80 transition-all shadow-2xs cursor-pointer shrink-0"
                 title="Open Admin Operations Console at /admin"
               >
                 <ShieldCheck className="h-3.5 w-3.5 text-indigo-600" />
-                <span className="hidden sm:inline">Admin</span>
-                <span className="sm:hidden">Admin</span>
+                <span>Admin</span>
               </Link>
-
-              {/* EcoPoints Badge */}
-              <div
-                onClick={() => setActiveTab('analytics')}
-                className="flex items-center gap-1.5 px-2.5 sm:px-3 py-1.5 rounded-lg bg-emerald-500/10 border border-emerald-500/20 cursor-pointer hover:bg-emerald-500/15 transition-colors"
-                title="Your EcoPoints balance"
-              >
-                <Leaf className="h-3.5 w-3.5 text-emerald-600 fill-emerald-500/30" />
-                <span className="text-xs font-black text-emerald-800 tracking-tight">{userProfile.ecoPoints}</span>
-                <span className="text-[10px] font-bold text-emerald-600/80 uppercase hidden sm:inline">pts</span>
-              </div>
 
               {/* Citizen Auth Status */}
               {currentUser ? (
@@ -170,14 +244,23 @@ export const Navbar: React.FC<NavbarProps> = ({
                   )}
                 </div>
               ) : (
-                <button
-                  onClick={onLoginClick}
-                  className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold bg-emerald-600 hover:bg-emerald-700 text-white shadow-xs transition-all cursor-pointer"
-                  title="Citizen Login / Registration"
-                >
-                  <User className="h-3.5 w-3.5" />
-                  <span>Sign In</span>
-                </button>
+                <div className="flex items-center gap-2">
+                  <button
+                    onClick={onLoginClick}
+                    className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl text-xs font-bold bg-[#007ba7] hover:bg-[#006a90] text-white shadow-md shadow-[#007ba7]/20 transition-all cursor-pointer active:scale-95"
+                    title="Citizen Login / Registration"
+                  >
+                    <User className="h-3.5 w-3.5" />
+                    <span>Sign In</span>
+                  </button>
+
+                  <button
+                    onClick={() => setActiveTab('request')}
+                    className="hidden sm:inline-flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-bold bg-emerald-600 hover:bg-emerald-700 text-white shadow-sm transition-all cursor-pointer"
+                  >
+                    <span>Request Pickup</span>
+                  </button>
+                </div>
               )}
 
               {/* Mobile menu toggle */}
@@ -227,7 +310,7 @@ export const Navbar: React.FC<NavbarProps> = ({
                   <span>Citizen Sign In / Register</span>
                 </button>
               )}
-              {navItems.map((item) => (
+              {currentUser && navItems.map((item) => (
                 <button
                   key={item.id}
                   onClick={() => handleNavClick(item.id)}
@@ -242,9 +325,47 @@ export const Navbar: React.FC<NavbarProps> = ({
                 </button>
               ))}
 
+              {/* After Login: Only keep Rewards option (not Categories or Why EcoLoop) */}
+              {currentUser ? (
+                <div className="pt-2 border-t border-gray-100">
+                  <button
+                    onClick={() => handleScrollTo('rewards')}
+                    className="w-full px-3.5 py-2.5 rounded-xl text-xs font-bold text-amber-900 bg-amber-50 hover:bg-amber-100 border border-amber-200/80 transition-colors text-left flex items-center justify-between cursor-pointer active:scale-95 shadow-2xs"
+                  >
+                    <div className="flex items-center gap-2">
+                      <Gift className="h-4 w-4 text-amber-600" />
+                      <span>Recycled Rewards Scheme 🎁</span>
+                    </div>
+                    <ChevronRight className="h-3.5 w-3.5 text-amber-600" />
+                  </button>
+                </div>
+              ) : (
+                /* Unauthenticated Mobile Explore Links */
+                <div className="pt-2 border-t border-gray-100">
+                  <span className="text-[10px] font-bold uppercase tracking-wider text-gray-400 px-3 block mb-1">
+                    Explore EcoLoop
+                  </span>
+                  <div className="grid grid-cols-2 gap-1.5 px-1">
+                    {publicLinks.map((link) => (
+                      <button
+                        key={link.targetId}
+                        onClick={() => handleScrollTo(link.targetId)}
+                        className="px-3 py-2 rounded-xl text-xs font-semibold text-gray-700 hover:bg-gray-50 bg-gray-50/60 border border-gray-100 transition-colors text-left flex items-center justify-between cursor-pointer active:scale-95"
+                      >
+                        <span>{link.label}</span>
+                        <ChevronRight className="h-3 w-3 text-gray-400" />
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )}
+
               <div className="border-t border-gray-100 pt-2.5 mt-2 space-y-1.5">
                 <button
-                  onClick={() => { onOpenAiScanner(); setMobileMenuOpen(false); }}
+                  onClick={() => {
+                    onOpenAiScanner();
+                    setMobileMenuOpen(false);
+                  }}
                   className="w-full flex items-center justify-between px-4 py-2.5 rounded-xl text-sm font-semibold text-emerald-700 bg-emerald-50/60 border border-emerald-100 cursor-pointer"
                 >
                   <div className="flex items-center gap-3">
@@ -271,26 +392,28 @@ export const Navbar: React.FC<NavbarProps> = ({
         )}
       </header>
 
-      {/* Mobile Bottom Navigation Bar */}
-      <nav className="md:hidden fixed bottom-0 left-0 right-0 z-40 bg-white/95 backdrop-blur-md border-t border-gray-100 safe-area-bottom shadow-lg">
-        <div className="flex items-center justify-around py-2">
-          {navItems.map((item) => {
-            const isActive = activeTab === item.id;
-            return (
-              <button
-                key={item.id}
-                onClick={() => handleNavClick(item.id)}
-                className={`flex flex-col items-center gap-1 py-1 px-3 rounded-lg cursor-pointer transition-colors min-w-[56px] ${
-                  isActive ? 'text-emerald-600 font-bold' : 'text-gray-400 font-medium'
-                }`}
-              >
-                <item.icon className="h-5 w-5" />
-                <span className="text-[10px] tracking-tight">{item.label}</span>
-              </button>
-            );
-          })}
-        </div>
-      </nav>
+      {/* Mobile Bottom Navigation Bar - only displayed for logged-in citizens */}
+      {currentUser && (
+        <nav className="md:hidden fixed bottom-0 left-0 right-0 z-40 bg-white/95 backdrop-blur-md border-t border-gray-100 safe-area-bottom shadow-lg">
+          <div className="flex items-center justify-around py-2">
+            {navItems.map((item) => {
+              const isActive = activeTab === item.id;
+              return (
+                <button
+                  key={item.id}
+                  onClick={() => handleNavClick(item.id)}
+                  className={`flex flex-col items-center gap-1 py-1 px-3 rounded-lg cursor-pointer transition-colors min-w-[56px] ${
+                    isActive ? 'text-emerald-600 font-bold' : 'text-gray-400 font-medium'
+                  }`}
+                >
+                  <item.icon className="h-5 w-5" />
+                  <span className="text-[10px] tracking-tight">{item.label}</span>
+                </button>
+              );
+            })}
+          </div>
+        </nav>
+      )}
     </>
   );
 };

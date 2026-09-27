@@ -140,28 +140,6 @@ export const INITIAL_REQUESTS: WastePickupRequest[] = [
     ecoPointsEarned: 420,
     co2OffsetKg: 52.5,
   },
-  {
-    id: 'REQ-105',
-    trackingCode: 'FIT-7422',
-    category: 'metal',
-    itemDescription: 'Decommissioned lab steel racks, aluminium window frames & copper wires',
-    estimatedWeightKg: 65.0,
-    quantityUnits: '1 heavy bundle',
-    pickupAddress: 'Mechanical Workshop Building 4, Flora Institute',
-    cityZone: 'Flora Institute of Technology Campus',
-    landmark: 'Workshop Bay 2',
-    coordinates: { lat: 18.3541, lng: 73.8538 },
-    scheduledDate: '2026-09-26',
-    scheduledSlot: '03:30 PM - 06:30 PM (Evening Slot)',
-    contactName: 'Prof. K. Verma',
-    contactPhone: '+91 97633 48190',
-    status: 'completed',
-    completedAt: '2026-09-26T16:45:00Z',
-    certificateId: 'REC-CERT-2026-7422',
-    createdAt: '2026-09-26T11:20:00Z',
-    ecoPointsEarned: 2275,
-    co2OffsetKg: 273.0,
-  },
 ];
 
 export const INITIAL_USER_PROFILE: CitizenImpactProfile = {
@@ -277,3 +255,32 @@ export function saveStoredCitizenUser(user: CitizenUser | null): void {
     console.error('Failed saving citizen user session', err);
   }
 }
+
+export const DEMO_DRIVER: CollectorDriver = INITIAL_DRIVERS[0];
+
+const ACTIVE_DRIVER_KEY = 'ecoloop_active_driver_v1';
+
+export function getStoredActiveDriver(): CollectorDriver | null {
+  if (typeof window === 'undefined') return null;
+  try {
+    const raw = localStorage.getItem(ACTIVE_DRIVER_KEY);
+    if (!raw) return null;
+    return JSON.parse(raw);
+  } catch (err) {
+    return null;
+  }
+}
+
+export function saveStoredActiveDriver(driver: CollectorDriver | null): void {
+  if (typeof window === 'undefined') return;
+  try {
+    if (driver) {
+      localStorage.setItem(ACTIVE_DRIVER_KEY, JSON.stringify(driver));
+    } else {
+      localStorage.removeItem(ACTIVE_DRIVER_KEY);
+    }
+  } catch (err) {
+    console.error('Failed saving active driver session', err);
+  }
+}
+

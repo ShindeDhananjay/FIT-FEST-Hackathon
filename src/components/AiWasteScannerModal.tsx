@@ -175,7 +175,7 @@ export const AiWasteScannerModal: React.FC<AiWasteScannerModalProps> = ({
   const downloadReport = (report: AiWasteReport) => {
     const content = `=========================================
 ECOLOOP PUNE - OFFICIAL AI WASTE AUDIT REPORT
-Powered by Google Gemini AI
+Powered by EcoLoop AI Vision
 =========================================
 Item: ${report.itemName}
 Material Class: ${report.category.toUpperCase()}
@@ -221,7 +221,7 @@ PMC Smart Municipal Waste Partner · Pune, Maharashtra
               <div className="flex items-center gap-2">
                 <h3 className="text-base font-extrabold tracking-tight">AI Waste & Material Scanner</h3>
                 <span className="text-[10px] font-bold bg-white/20 px-2 py-0.5 rounded text-emerald-100">
-                  Gemini Vision
+                  EcoLoop Vision AI
                 </span>
               </div>
               <p className="text-xs text-emerald-100/80">Snap or select an item to generate an instant recycling report</p>
@@ -295,7 +295,7 @@ PMC Smart Municipal Waste Partner · Pune, Maharashtra
                   <RefreshCw className="h-7 w-7 animate-spin" />
                 </div>
               </div>
-              <h4 className="text-sm font-extrabold text-gray-900">Analyzing Material with Google Gemini AI…</h4>
+              <h4 className="text-sm font-extrabold text-gray-900">Analyzing Material with EcoLoop AI Vision…</h4>
               <p className="text-xs text-gray-500 max-w-sm mx-auto">
                 Inspecting material composition, contamination risk, and generating PMC segregation report.
               </p>

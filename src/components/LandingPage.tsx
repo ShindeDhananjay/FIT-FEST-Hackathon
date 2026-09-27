@@ -15,13 +15,25 @@ import {
   BarChart3,
   Shield,
   Clock,
+  Gift,
+  CheckCircle2,
+  ChevronRight,
+  Scale,
+  Zap,
 } from 'lucide-react';
 import { WASTE_CATEGORIES } from '@/constants/wasteCategories';
-import { WasteCategory } from '@/types/waste';
+import { WasteCategory, CitizenUser } from '@/types/waste';
+import { RewardsSection, RecycledRewardItem } from '@/components/RewardsSection';
 
 interface LandingPageProps {
-  onStartPickup: () => void;
+  onStartPickup: (category?: WasteCategory) => void;
   onScrollToHowItWorks: () => void;
+  onLoginClick?: () => void;
+  currentUser?: CitizenUser | null;
+  userEcoPoints?: number;
+  onRedeemReward?: (reward: RecycledRewardItem) => void;
+  onOpenAiScanner?: () => void;
+  onTrackPickup?: () => void;
 }
 
 const stagger = {
@@ -38,8 +50,32 @@ const stagger = {
   },
 };
 
-export const LandingPage: React.FC<LandingPageProps> = ({ onStartPickup, onScrollToHowItWorks }) => {
+export const LandingPage: React.FC<LandingPageProps> = ({
+  onStartPickup,
+  onScrollToHowItWorks,
+  onLoginClick,
+  currentUser = null,
+  userEcoPoints = 0,
+  onRedeemReward,
+  onOpenAiScanner,
+  onTrackPickup,
+}) => {
   const categories = Object.entries(WASTE_CATEGORIES).slice(0, 6);
+
+  const handleScrollToCategories = () => {
+    const el = document.getElementById('categories');
+    if (el) el.scrollIntoView({ behavior: 'smooth' });
+  };
+
+  const handleScrollToRewards = () => {
+    const el = document.getElementById('rewards');
+    if (el) el.scrollIntoView({ behavior: 'smooth' });
+  };
+
+  const handleScrollToWhyEcoLoop = () => {
+    const el = document.getElementById('why-ecoloop');
+    if (el) el.scrollIntoView({ behavior: 'smooth' });
+  };
 
   return (
     <div className="w-full">
@@ -85,7 +121,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onStartPickup, onScrol
 
             <motion.div variants={stagger.item} className="mt-8 flex flex-wrap items-center justify-center gap-3.5">
               <button
-                onClick={onStartPickup}
+                onClick={() => onStartPickup()}
                 className="inline-flex items-center gap-2 px-7 py-3.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-semibold text-sm sm:text-base shadow-lg shadow-emerald-600/25 hover:shadow-emerald-600/35 transition-all active:scale-[0.98] cursor-pointer"
               >
                 Request a Pickup
@@ -93,10 +129,25 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onStartPickup, onScrol
               </button>
 
               <button
+                onClick={onLoginClick || (() => onStartPickup())}
+                className="inline-flex items-center gap-2 px-6 py-3.5 rounded-xl bg-teal-50 hover:bg-teal-100/90 text-teal-800 font-semibold text-sm sm:text-base border border-teal-200/80 transition-all cursor-pointer"
+              >
+                <span>Citizen Sign In</span>
+              </button>
+
+              <button
+                onClick={handleScrollToRewards}
+                className="inline-flex items-center gap-2 px-6 py-3.5 rounded-xl bg-amber-50 hover:bg-amber-100 text-amber-900 font-semibold text-sm sm:text-base border border-amber-200/80 shadow-xs transition-all cursor-pointer"
+              >
+                <Gift className="h-4 w-4 text-amber-600" />
+                <span>Rewards Scheme</span>
+              </button>
+
+              <button
                 onClick={onScrollToHowItWorks}
                 className="inline-flex items-center gap-2 px-6 py-3.5 rounded-xl bg-white hover:bg-gray-50 text-gray-700 font-semibold text-sm sm:text-base border border-gray-200 shadow-sm transition-all cursor-pointer"
               >
-                Explore How It Works
+                <span>How It Works</span>
                 <ChevronDown className="h-4 w-4" />
               </button>
 
@@ -106,8 +157,37 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onStartPickup, onScrol
                 title="Municipal Admin Operations Console"
               >
                 <Shield className="h-4 w-4 text-indigo-600" />
-                <span>Admin /admin</span>
+                <span>Admin</span>
               </a>
+            </motion.div>
+
+            {/* Quick Section Jump Pills */}
+            <motion.div variants={stagger.item} className="mt-5 flex flex-wrap items-center justify-center gap-2 text-xs font-semibold">
+              <span className="text-gray-400 text-[11px] mr-1">Quick Jump:</span>
+              <button
+                onClick={onScrollToHowItWorks}
+                className="px-3 py-1.5 rounded-full bg-emerald-50 text-emerald-800 border border-emerald-200/80 hover:bg-emerald-100 transition-all cursor-pointer flex items-center gap-1 active:scale-95"
+              >
+                <span>🔄 How It Works</span>
+              </button>
+              <button
+                onClick={handleScrollToCategories}
+                className="px-3 py-1.5 rounded-full bg-blue-50 text-blue-800 border border-blue-200/80 hover:bg-blue-100 transition-all cursor-pointer flex items-center gap-1 active:scale-95"
+              >
+                <span>♻️ Categories</span>
+              </button>
+              <button
+                onClick={handleScrollToRewards}
+                className="px-3 py-1.5 rounded-full bg-amber-50 text-amber-900 border border-amber-200/80 hover:bg-amber-100 transition-all cursor-pointer flex items-center gap-1 active:scale-95"
+              >
+                <span>🎁 Rewards 🎁</span>
+              </button>
+              <button
+                onClick={handleScrollToWhyEcoLoop}
+                className="px-3 py-1.5 rounded-full bg-teal-50 text-teal-800 border border-teal-200/80 hover:bg-teal-100 transition-all cursor-pointer flex items-center gap-1 active:scale-95"
+              >
+                <span>🛡️ Why EcoLoop</span>
+              </button>
             </motion.div>
 
             {/* Trust badges */}
@@ -201,7 +281,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onStartPickup, onScrol
       </section>
 
       {/* ============ WASTE CATEGORIES ============ */}
-      <section className="py-20 sm:py-24 bg-gray-50/50">
+      <section id="categories" className="py-20 sm:py-24 bg-gradient-to-b from-gray-50/70 via-white to-gray-50/50 scroll-mt-16 sm:scroll-mt-20">
         <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8">
           <motion.div
             initial={{ opacity: 0, y: 20 }}
@@ -209,36 +289,103 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onStartPickup, onScrol
             viewport={{ once: true }}
             className="text-center mb-14"
           >
+            <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full text-xs font-bold bg-emerald-100 text-emerald-900 border border-emerald-200/80 mb-3 shadow-xs">
+              <Recycle className="h-3.5 w-3.5 text-emerald-600 animate-spin-slow" />
+              <span>Municipal Segregation Guide & Earnings</span>
+            </div>
             <h2 className="text-3xl sm:text-4xl font-extrabold text-gray-900 tracking-tight">
-              Smart Waste Categories
+              Smart Waste Categories & Earning Rates
             </h2>
-            <p className="mt-3 text-gray-500 max-w-lg mx-auto">
-              Proper segregation means better recycling. We handle every type.
+            <p className="mt-3 text-gray-500 max-w-xl mx-auto text-sm sm:text-base leading-relaxed">
+              Proper segregation ensures maximum recycling efficiency. Click any category to schedule a targeted collection and earn verified <strong>EcoPoints</strong>.
             </p>
           </motion.div>
 
-          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-4">
-            {categories.map(([key, cat], i) => (
-              <motion.div
-                key={key}
-                initial={{ opacity: 0, y: 16 }}
-                whileInView={{ opacity: 1, y: 0 }}
-                viewport={{ once: true }}
-                transition={{ delay: i * 0.05 }}
-                className="p-5 rounded-2xl bg-white border border-gray-100 shadow-sm hover:shadow-md hover:border-emerald-200 transition-all cursor-pointer text-center group"
-              >
-                <div className="w-12 h-12 rounded-xl bg-emerald-50 flex items-center justify-center mx-auto mb-3 group-hover:bg-emerald-100 transition-colors">
-                  <span className="text-xl">
-                    {key === 'organic' ? '🌿' : key === 'plastic' ? '♻️' : key === 'ewaste' ? '🔋' : key === 'hazardous' ? '⚠️' : key === 'paper' ? '📄' : '🔩'}
-                  </span>
-                </div>
-                <h3 className="text-sm font-semibold text-gray-900">{cat.name.split(' ')[0]}</h3>
-                <p className="text-xs text-gray-400 mt-1">{cat.ecoPointsPerKg} pts/kg</p>
-              </motion.div>
-            ))}
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5 sm:gap-6">
+            {categories.map(([key, cat], i) => {
+              const categoryEmoji = key === 'organic' ? '🌿' : key === 'plastic' ? '♻️' : key === 'ewaste' ? '🔋' : key === 'hazardous' ? '⚠️' : key === 'paper' ? '📄' : '🔩';
+              
+              return (
+                <motion.div
+                  key={key}
+                  initial={{ opacity: 0, y: 16 }}
+                  whileInView={{ opacity: 1, y: 0 }}
+                  viewport={{ once: true }}
+                  transition={{ delay: i * 0.06 }}
+                  onClick={() => onStartPickup(key as WasteCategory)}
+                  className="p-6 rounded-3xl bg-white border border-gray-200/80 shadow-sm hover:shadow-xl hover:border-emerald-400 transition-all duration-300 cursor-pointer flex flex-col justify-between group active:scale-[0.98]"
+                >
+                  <div>
+                    {/* Header: Icon, Name & Points Badge */}
+                    <div className="flex items-start justify-between gap-3 mb-3">
+                      <div className="flex items-center gap-3">
+                        <div className="w-12 h-12 rounded-2xl bg-emerald-50 text-2xl flex items-center justify-center shrink-0 group-hover:scale-110 transition-transform">
+                          {categoryEmoji}
+                        </div>
+                        <div>
+                          <h3 className="text-base font-bold text-gray-900 group-hover:text-emerald-700 transition-colors">
+                            {cat.name}
+                          </h3>
+                          <span className="text-[11px] font-semibold text-emerald-600 flex items-center gap-1">
+                            <Leaf className="h-3 w-3" />
+                            <span>{cat.co2Factor}kg CO₂ saved/kg</span>
+                          </span>
+                        </div>
+                      </div>
+
+                      <div className="px-2.5 py-1 rounded-xl bg-amber-50 border border-amber-200/90 text-amber-900 text-xs font-black shrink-0 flex items-center gap-1 shadow-xs">
+                        <Award className="h-3.5 w-3.5 text-amber-600" />
+                        <span>+{cat.ecoPointsPerKg} pts/kg</span>
+                      </div>
+                    </div>
+
+                    {/* Tagline */}
+                    <p className="text-xs text-gray-500 leading-relaxed font-normal mt-2">
+                      {cat.tagline}
+                    </p>
+
+                    {/* Examples Pills */}
+                    <div className="mt-4 pt-3 border-t border-gray-100">
+                      <span className="text-[10px] font-bold uppercase tracking-wider text-gray-400 block mb-1.5">
+                        Accepted Materials:
+                      </span>
+                      <div className="flex flex-wrap gap-1.5">
+                        {cat.examples.slice(0, 3).map((ex, exIdx) => (
+                          <span
+                            key={exIdx}
+                            className="px-2 py-0.5 rounded-md bg-gray-50 text-gray-600 text-[11px] border border-gray-100"
+                          >
+                            {ex}
+                          </span>
+                        ))}
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Card Action */}
+                  <div className="mt-5 pt-3 border-t border-gray-100/80 flex items-center justify-between text-xs font-bold text-emerald-700 group-hover:text-emerald-800">
+                    <span className="flex items-center gap-1">
+                      <span>Schedule {cat.name.split(' ')[0]}</span>
+                    </span>
+                    <div className="w-7 h-7 rounded-full bg-emerald-50 group-hover:bg-emerald-600 group-hover:text-white flex items-center justify-center transition-colors">
+                      <ArrowRight className="h-3.5 w-3.5" />
+                    </div>
+                  </div>
+                </motion.div>
+              );
+            })}
           </div>
         </div>
       </section>
+
+      {/* ============ ECOPOINTS & RECYCLED REWARDS SCHEME ============ */}
+      <RewardsSection
+        currentUser={currentUser}
+        userEcoPoints={userEcoPoints}
+        onRequestPickup={() => onStartPickup()}
+        onLoginClick={onLoginClick}
+        onRedeemPoints={onRedeemReward}
+      />
 
       {/* ============ IMPACT SECTION ============ */}
       <section className="py-20 sm:py-24 bg-white">
@@ -284,40 +431,179 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onStartPickup, onScrol
       </section>
 
       {/* ============ WHY ECOLOOP ============ */}
-      <section className="py-20 sm:py-24 bg-emerald-50/50">
-        <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8">
+      <section id="why-ecoloop" className="py-20 sm:py-24 bg-gradient-to-b from-emerald-50/60 via-teal-50/30 to-white scroll-mt-16 sm:scroll-mt-20 relative overflow-hidden">
+        <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8">
           <motion.div
             initial={{ opacity: 0, y: 20 }}
             whileInView={{ opacity: 1, y: 0 }}
             viewport={{ once: true }}
             className="text-center mb-14"
           >
+            <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full text-xs font-bold bg-teal-100 text-teal-900 border border-teal-200/80 mb-3 shadow-xs">
+              <Shield className="h-3.5 w-3.5 text-teal-700" />
+              <span>Civic Trust & Circular Reliability</span>
+            </div>
             <h2 className="text-3xl sm:text-4xl font-extrabold text-gray-900 tracking-tight">
-              Why EcoLoop?
+              Why EcoLoop Works Properly
             </h2>
+            <p className="mt-3 text-gray-600 max-w-2xl mx-auto text-sm sm:text-base leading-relaxed">
+              We eliminated fragmented collections, unverified dumping, and lack of citizen incentives. Here is how EcoLoop guarantees a seamless, rewarded zero-waste cycle from your doorstep.
+            </p>
           </motion.div>
 
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-            {[
-              { icon: Sparkles, title: 'AI-Powered Scanner', desc: 'Snap a photo and let AI identify your waste type and suggest the right category instantly.' },
-              { icon: BarChart3, title: 'Impact Dashboard', desc: 'Track your personal carbon offset, recycled materials, and community leaderboard ranking.' },
-              { icon: Shield, title: 'Verified Recycling', desc: 'Get digital recycling certificates that prove your waste was properly processed.' },
-            ].map((item, i) => (
-              <motion.div
-                key={item.title}
-                initial={{ opacity: 0, y: 16 }}
-                whileInView={{ opacity: 1, y: 0 }}
-                viewport={{ once: true }}
-                transition={{ delay: i * 0.1 }}
-                className="p-6 rounded-2xl bg-white border border-emerald-100 shadow-sm"
-              >
-                <div className="w-10 h-10 rounded-xl bg-emerald-100 flex items-center justify-center mb-4">
-                  <item.icon className="h-5 w-5 text-emerald-600" />
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            {/* Feature 1: AI Scanner */}
+            <motion.div
+              initial={{ opacity: 0, y: 16 }}
+              whileInView={{ opacity: 1, y: 0 }}
+              viewport={{ once: true }}
+              transition={{ delay: 0.05 }}
+              className="p-6 rounded-3xl bg-white border border-emerald-100 shadow-sm hover:shadow-xl hover:border-emerald-300 transition-all flex flex-col justify-between"
+            >
+              <div>
+                <div className="w-12 h-12 rounded-2xl bg-emerald-100 text-emerald-600 flex items-center justify-center mb-4">
+                  <Sparkles className="h-6 w-6" />
                 </div>
-                <h3 className="font-bold text-gray-900">{item.title}</h3>
-                <p className="mt-2 text-sm text-gray-500 leading-relaxed">{item.desc}</p>
-              </motion.div>
-            ))}
+                <h3 className="text-lg font-bold text-gray-900">AI-Powered Waste Scanner</h3>
+                <p className="mt-2 text-xs sm:text-sm text-gray-600 leading-relaxed">
+                  Snap a quick photo with your camera. Our AI classifies polymer resin codes, detects recyclability, and computes your expected EcoPoints automatically.
+                </p>
+              </div>
+              <div className="mt-5 pt-4 border-t border-gray-100">
+                <button
+                  onClick={onOpenAiScanner}
+                  className="w-full py-2.5 px-3.5 rounded-xl bg-emerald-50 hover:bg-emerald-100 text-emerald-800 text-xs font-bold flex items-center justify-center gap-1.5 transition-colors cursor-pointer"
+                >
+                  <Sparkles className="h-3.5 w-3.5 text-emerald-600" />
+                  <span>Try AI Scanner 📷</span>
+                </button>
+              </div>
+            </motion.div>
+
+            {/* Feature 2: Real-time GPS Fleet Tracking */}
+            <motion.div
+              initial={{ opacity: 0, y: 16 }}
+              whileInView={{ opacity: 1, y: 0 }}
+              viewport={{ once: true }}
+              transition={{ delay: 0.1 }}
+              className="p-6 rounded-3xl bg-white border border-teal-100 shadow-sm hover:shadow-xl hover:border-teal-300 transition-all flex flex-col justify-between"
+            >
+              <div>
+                <div className="w-12 h-12 rounded-2xl bg-teal-100 text-teal-600 flex items-center justify-center mb-4">
+                  <MapPin className="h-6 w-6" />
+                </div>
+                <h3 className="text-lg font-bold text-gray-900">Live GPS Fleet Tracking</h3>
+                <p className="mt-2 text-xs sm:text-sm text-gray-600 leading-relaxed">
+                  Never wait blindly on the sidewalk. Watch your assigned PMC driver on the live Pune map with turn-by-turn ETA updates and driver phone contact.
+                </p>
+              </div>
+              <div className="mt-5 pt-4 border-t border-gray-100">
+                <button
+                  onClick={onTrackPickup}
+                  className="w-full py-2.5 px-3.5 rounded-xl bg-teal-50 hover:bg-teal-100 text-teal-800 text-xs font-bold flex items-center justify-center gap-1.5 transition-colors cursor-pointer"
+                >
+                  <Truck className="h-3.5 w-3.5 text-teal-600" />
+                  <span>Track Pickups Live 🚚</span>
+                </button>
+              </div>
+            </motion.div>
+
+            {/* Feature 3: 100% Recycled Rewards Scheme */}
+            <motion.div
+              initial={{ opacity: 0, y: 16 }}
+              whileInView={{ opacity: 1, y: 0 }}
+              viewport={{ once: true }}
+              transition={{ delay: 0.15 }}
+              className="p-6 rounded-3xl bg-white border border-amber-100 shadow-sm hover:shadow-xl hover:border-amber-300 transition-all flex flex-col justify-between"
+            >
+              <div>
+                <div className="w-12 h-12 rounded-2xl bg-amber-100 text-amber-700 flex items-center justify-center mb-4">
+                  <Gift className="h-6 w-6" />
+                </div>
+                <h3 className="text-lg font-bold text-gray-900">Circular Rewards Scheme</h3>
+                <p className="mt-2 text-xs sm:text-sm text-gray-600 leading-relaxed">
+                  Earn EcoPoints on every kilogram. Redeem points for backpacks made from recycled PET bottles, plantable seed journals, or Pune Metro rides!
+                </p>
+              </div>
+              <div className="mt-5 pt-4 border-t border-gray-100">
+                <button
+                  onClick={handleScrollToRewards}
+                  className="w-full py-2.5 px-3.5 rounded-xl bg-amber-50 hover:bg-amber-100 text-amber-900 text-xs font-bold flex items-center justify-center gap-1.5 transition-colors cursor-pointer"
+                >
+                  <Gift className="h-3.5 w-3.5 text-amber-600" />
+                  <span>Explore Recycled Rewards 🎁</span>
+                </button>
+              </div>
+            </motion.div>
+
+            {/* Feature 4: Doorstep Weighing */}
+            <motion.div
+              initial={{ opacity: 0, y: 16 }}
+              whileInView={{ opacity: 1, y: 0 }}
+              viewport={{ once: true }}
+              transition={{ delay: 0.2 }}
+              className="p-6 rounded-3xl bg-white border border-slate-100 shadow-sm hover:shadow-xl hover:border-slate-300 transition-all flex flex-col justify-between"
+            >
+              <div>
+                <div className="w-12 h-12 rounded-2xl bg-slate-100 text-slate-700 flex items-center justify-center mb-4">
+                  <Scale className="h-6 w-6" />
+                </div>
+                <h3 className="text-lg font-bold text-gray-900">Doorstep Digital Scale Weighing</h3>
+                <p className="mt-2 text-xs sm:text-sm text-gray-600 leading-relaxed">
+                  Municipal drivers carry certified Bluetooth hanging scales. Bags are weighed in your presence, and points are locked into your account in real time.
+                </p>
+              </div>
+              <div className="mt-5 pt-4 border-t border-gray-100 flex items-center justify-center gap-2 text-xs font-semibold text-slate-600 bg-slate-50 py-2 rounded-xl">
+                <CheckCircle2 className="h-3.5 w-3.5 text-emerald-600" />
+                <span>Zero Discrepancy Guarantee</span>
+              </div>
+            </motion.div>
+
+            {/* Feature 5: Verified Landfill Diversion */}
+            <motion.div
+              initial={{ opacity: 0, y: 16 }}
+              whileInView={{ opacity: 1, y: 0 }}
+              viewport={{ once: true }}
+              transition={{ delay: 0.25 }}
+              className="p-6 rounded-3xl bg-white border border-emerald-100 shadow-sm hover:shadow-xl hover:border-emerald-300 transition-all flex flex-col justify-between"
+            >
+              <div>
+                <div className="w-12 h-12 rounded-2xl bg-emerald-100 text-emerald-700 flex items-center justify-center mb-4">
+                  <Shield className="h-6 w-6" />
+                </div>
+                <h3 className="text-lg font-bold text-gray-900">Zero-Landfill Certification</h3>
+                <p className="mt-2 text-xs sm:text-sm text-gray-600 leading-relaxed">
+                  Every batch is delivered strictly to PMC-authorized recycling centers and composting hubs. Download verified ESG impact certificates for societies and schools.
+                </p>
+              </div>
+              <div className="mt-5 pt-4 border-t border-gray-100 flex items-center justify-center gap-2 text-xs font-semibold text-emerald-700 bg-emerald-50 py-2 rounded-xl">
+                <CheckCircle2 className="h-3.5 w-3.5 text-emerald-600" />
+                <span>PMC Authorized Recyclers</span>
+              </div>
+            </motion.div>
+
+            {/* Feature 6: Dignified Livelihoods */}
+            <motion.div
+              initial={{ opacity: 0, y: 16 }}
+              whileInView={{ opacity: 1, y: 0 }}
+              viewport={{ once: true }}
+              transition={{ delay: 0.3 }}
+              className="p-6 rounded-3xl bg-white border border-indigo-100 shadow-sm hover:shadow-xl hover:border-indigo-300 transition-all flex flex-col justify-between"
+            >
+              <div>
+                <div className="w-12 h-12 rounded-2xl bg-indigo-100 text-indigo-700 flex items-center justify-center mb-4">
+                  <Truck className="h-6 w-6" />
+                </div>
+                <h3 className="text-lg font-bold text-gray-900">Supporting Waste Workers</h3>
+                <p className="mt-2 text-xs sm:text-sm text-gray-600 leading-relaxed">
+                  EcoLoop empowers municipal drivers and women's self-help groups with digital route optimization, safety gear, and above-market hourly incentives.
+                </p>
+              </div>
+              <div className="mt-5 pt-4 border-t border-gray-100 flex items-center justify-center gap-2 text-xs font-semibold text-indigo-700 bg-indigo-50 py-2 rounded-xl">
+                <CheckCircle2 className="h-3.5 w-3.5 text-indigo-600" />
+                <span>Fair Trade Civic Employment</span>
+              </div>
+            </motion.div>
           </div>
         </div>
       </section>
@@ -339,7 +625,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onStartPickup, onScrol
                 Schedule your first waste collection in under two minutes.
               </p>
               <button
-                onClick={onStartPickup}
+                onClick={() => onStartPickup()}
                 className="mt-6 inline-flex items-center gap-2 px-7 py-3.5 rounded-xl bg-white hover:bg-gray-50 text-emerald-700 font-bold text-sm shadow-lg transition-all active:scale-[0.97] cursor-pointer relative z-10"
               >
                 Get Started
@@ -359,8 +645,13 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onStartPickup, onScrol
             </div>
             <span className="font-bold text-gray-900">Eco<span className="text-emerald-600">Loop</span></span>
           </div>
-          <div className="flex items-center gap-4 text-xs text-gray-400">
+          <div className="flex flex-wrap items-center gap-3 sm:gap-4 text-xs text-gray-400">
             <span>© 2026 EcoLoop · Pune Civic Waste Operations</span>
+            <span>·</span>
+            <a href="/driver" className="font-semibold text-slate-600 hover:text-emerald-600 flex items-center gap-1 transition-colors">
+              <Truck className="h-3.5 w-3.5 text-emerald-600" />
+              <span>Delivery Partner (/driver)</span>
+            </a>
             <span>·</span>
             <a href="/admin" className="font-semibold text-slate-600 hover:text-indigo-600 flex items-center gap-1 transition-colors">
               <Shield className="h-3.5 w-3.5 text-indigo-600" />

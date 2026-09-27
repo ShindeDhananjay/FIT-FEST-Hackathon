@@ -84,7 +84,7 @@ const WasteRequestSchema = new Schema<IWasteRequest>(
     co2OffsetKg: { type: Number, required: true },
     certificateId: { type: String },
   },
-  { timestamps: true }
+  { timestamps: true, collection: 'waste_requests' }
 );
 
 export const WasteRequestModel: Model<IWasteRequest> =

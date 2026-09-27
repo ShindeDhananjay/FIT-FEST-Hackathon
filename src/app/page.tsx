@@ -11,7 +11,8 @@ import { CityAnalytics } from '@/components/CityAnalytics';
 import { AiWasteScannerModal } from '@/components/AiWasteScannerModal';
 import { SocialPosterModal } from '@/components/SocialPosterModal';
 import { ChatbotModal } from '@/components/ChatbotModal';
-import { CitizenLoginPage } from '@/components/CitizenLoginPage';
+import { CitizenLoginPage, DEMO_CITIZEN_USER } from '@/components/CitizenLoginPage';
+import { DriverDashboard } from '@/components/DriverDashboard';
 import {
   getStoredRequests,
   saveStoredRequests,
@@ -20,9 +21,12 @@ import {
   saveStoredProfile,
   getStoredCitizenUser,
   saveStoredCitizenUser,
+  getStoredActiveDriver,
+  saveStoredActiveDriver,
 } from '@/lib/storage';
 import { WastePickupRequest, CollectorDriver, CitizenImpactProfile, RequestStatus, WasteCategory, CitizenUser } from '@/types/waste';
 import { getApiUrl } from '@/lib/api';
+import { playLoginWelcomeVoice } from '@/lib/voice';
 import { CheckCircle2, Bot } from 'lucide-react';
 
 export default function Home() {
@@ -32,6 +36,7 @@ export default function Home() {
   const [drivers, setDrivers] = useState<CollectorDriver[]>([]);
   const [userProfile, setUserProfile] = useState<CitizenImpactProfile>(getStoredProfile());
   const [citizenUser, setCitizenUser] = useState<CitizenUser | null>(null);
+  const [activeDriver, setActiveDriver] = useState<CollectorDriver | null>(null);
   const [dbConnected, setDbConnected] = useState<boolean>(true);
 
   // Modals state
@@ -45,6 +50,9 @@ export default function Home() {
   const [prefilledDescription, setPrefilledDescription] = useState<string | undefined>(undefined);
   const [prefilledWeight, setPrefilledWeight] = useState<number | undefined>(undefined);
 
+  // Gated navigation target (remembers where user wanted to go before login)
+  const [pendingTab, setPendingTab] = useState<ActiveTab>('request');
+
   // Notification Toast state
   const [toastMessage, setToastMessage] = useState<string | null>(null);
 
@@ -54,18 +62,23 @@ export default function Home() {
     const localDrivers = getStoredDrivers();
     const localProfile = getStoredProfile();
     const localCitizen = getStoredCitizenUser();
+    const localActiveDriver = getStoredActiveDriver();
 
     setRequests(localRequests);
     setDrivers(localDrivers);
     setUserProfile(localProfile);
     setCitizenUser(localCitizen);
+    if (localActiveDriver) {
+      setActiveDriver(localActiveDriver);
+    }
 
     // Check URL query parameters for ?tab=
     if (typeof window !== 'undefined') {
       const params = new URLSearchParams(window.location.search);
       const tabParam = params.get('tab') as ActiveTab | null;
-      if (tabParam) {
-        if (tabParam === 'request' && !localCitizen) {
+      if (tabParam && tabParam !== 'home') {
+        if (!localCitizen) {
+          setPendingTab(tabParam);
           setActiveTab('login');
         } else {
           setActiveTab(tabParam);
@@ -104,17 +117,51 @@ export default function Home() {
     setTimeout(() => setToastMessage(null), 3500);
   };
 
-  // Start pickup gate - requires citizen login
-  const handleStartPickup = () => {
-    if (!citizenUser) {
+  // Centralized navigation gate — any non-home tab requires citizen login
+  const handleNavigate = (targetTab: ActiveTab) => {
+    if (targetTab === 'home') {
+      setActiveTab('home');
+      return;
+    }
+    if (targetTab === 'login') {
       setActiveTab('login');
-      showToast('Please sign in or create an account to request a pickup.');
+      return;
+    }
+    if (!citizenUser) {
+      setPendingTab(targetTab);
+      setActiveTab('login');
+      const tabLabels: Record<string, string> = {
+        request: 'request a pickup',
+        track: 'track pickups live',
+        history: 'view pickup history',
+        analytics: 'view impact & EcoPoints',
+      };
+      showToast(`Please sign in first to ${tabLabels[targetTab] || 'proceed'}.`);
     } else {
-      setActiveTab('request');
+      setActiveTab(targetTab);
     }
   };
 
-  // Successful citizen login
+  // AI Scanner gate — requires citizen login
+  const handleOpenAiScanner = () => {
+    if (!citizenUser) {
+      setPendingTab('request');
+      setActiveTab('login');
+      showToast('Please sign in first to use the AI Waste Scanner.');
+    } else {
+      setIsAiScannerOpen(true);
+    }
+  };
+
+  // Start pickup gate - calls centralized gate with optional pre-selected category
+  const handleStartPickup = (category?: WasteCategory) => {
+    if (category) {
+      setPrefilledCategory(category);
+    }
+    handleNavigate('request');
+  };
+
+  // Successful citizen login — forwards to pending tab and plays natural male voice note
   const handleLoginSuccess = (user: CitizenUser) => {
     setCitizenUser(user);
     saveStoredCitizenUser(user);
@@ -125,7 +172,13 @@ export default function Home() {
       phone: user.phone,
     }));
     showToast(`Welcome back, ${user.name}!`);
-    setActiveTab('request');
+
+    // Voice note: "Hello, welcome back [Name]. Your current score is [Points] points. Keep settling up garbage and earn rewards!"
+    playLoginWelcomeVoice(user.name, user.ecoPoints);
+
+    const destination = pendingTab && pendingTab !== 'login' ? pendingTab : 'request';
+    setActiveTab(destination);
+    setPendingTab('request');
   };
 
   // Citizen sign out
@@ -133,6 +186,21 @@ export default function Home() {
     setCitizenUser(null);
     saveStoredCitizenUser(null);
     showToast('Signed out of citizen session.');
+    setActiveTab('home');
+  };
+
+  // Successful driver login
+  const handleDriverLoginSuccess = (driver: CollectorDriver) => {
+    setActiveDriver(driver);
+    saveStoredActiveDriver(driver);
+    showToast(`Welcome back, Delivery Partner ${driver.name}!`);
+  };
+
+  // Driver sign out
+  const handleDriverLogout = () => {
+    setActiveDriver(null);
+    saveStoredActiveDriver(null);
+    showToast('Signed out of driver console.');
     setActiveTab('home');
   };
 
@@ -164,6 +232,27 @@ export default function Home() {
     } catch (err) {
       console.error('Failed syncing new request to MongoDB Atlas', err);
     }
+  };
+
+  // Redeem circular recycled reward
+  const handleRedeemReward = (reward: any) => {
+    if (!citizenUser) return;
+    const newPoints = Math.max(0, (citizenUser.ecoPoints || userProfile.ecoPoints) - reward.points);
+    const updatedProfile = {
+      ...userProfile,
+      ecoPoints: newPoints,
+    };
+    setUserProfile(updatedProfile);
+    saveStoredProfile(updatedProfile);
+
+    const updatedUser = {
+      ...citizenUser,
+      ecoPoints: newPoints,
+    };
+    setCitizenUser(updatedUser);
+    saveStoredCitizenUser(updatedUser);
+
+    showToast(`Claimed ${reward.title}! ${reward.points} EcoPoints redeemed.`);
   };
 
   // Admin changes status
@@ -240,6 +329,7 @@ export default function Home() {
     setPrefilledDescription(data.description);
     setPrefilledWeight(data.weight);
     if (!citizenUser) {
+      setPendingTab('request');
       setActiveTab('login');
       showToast(`AI detected ${data.category.toUpperCase()}! Sign in to book.`);
     } else {
@@ -254,8 +344,9 @@ export default function Home() {
     setPrefilledDescription(oldReq.itemDescription);
     setPrefilledWeight(oldReq.estimatedWeightKg);
     if (!citizenUser) {
+      setPendingTab('request');
       setActiveTab('login');
-      showToast('Please sign in to repeat this pickup.');
+      showToast('Please sign in first to repeat this pickup.');
     } else {
       setActiveTab('request');
       showToast(`Loaded details from ${oldReq.trackingCode}`);
@@ -270,8 +361,30 @@ export default function Home() {
     return <SplashScreen onComplete={handleSplashComplete} />;
   }
 
+  // Active delivery partner dashboard view
+  if (activeDriver) {
+    return (
+      <DriverDashboard
+        driver={activeDriver}
+        requests={requests}
+        onRequestUpdate={(updated) => {
+          setRequests(updated);
+          saveStoredRequests(updated);
+        }}
+        onLogout={handleDriverLogout}
+        onSwitchToCitizen={() => {
+          setActiveDriver(null);
+          saveStoredActiveDriver(null);
+          setActiveTab('home');
+        }}
+      />
+    );
+  }
+
+  const isAuthGatedView = activeTab === 'login' || (!citizenUser && activeTab !== 'home');
+
   return (
-    <div className="min-h-screen flex flex-col bg-[var(--bg-primary)]">
+    <div className={isAuthGatedView ? "h-screen max-h-screen w-full overflow-hidden flex flex-col bg-white" : "min-h-screen flex flex-col bg-[var(--bg-primary)]"}>
 
       {/* Toast Notification */}
       {toastMessage && (
@@ -283,19 +396,12 @@ export default function Home() {
         </div>
       )}
 
-      {/* Navbar — rendered on all screens except dedicated login view */}
-      {activeTab !== 'login' && (
+      {/* Navbar — rendered on all screens except dedicated login/auth view */}
+      {!isAuthGatedView && (
         <Navbar
           activeTab={activeTab}
-          setActiveTab={(tab) => {
-            if (tab === 'request' && !citizenUser) {
-              setActiveTab('login');
-              showToast('Please sign in to schedule a pickup.');
-            } else {
-              setActiveTab(tab);
-            }
-          }}
-          onOpenAiScanner={() => setIsAiScannerOpen(true)}
+          setActiveTab={handleNavigate}
+          onOpenAiScanner={handleOpenAiScanner}
           userProfile={userProfile}
           dbConnected={dbConnected}
           currentUser={citizenUser}
@@ -305,30 +411,46 @@ export default function Home() {
       )}
 
       {/* Main Content */}
-      <main className="flex-1 pb-20 md:pb-0">
+      <main className={isAuthGatedView ? "h-screen max-h-screen w-full overflow-hidden" : "flex-1 pb-20 md:pb-0"}>
         {activeTab === 'home' && (
           <LandingPage
             onStartPickup={handleStartPickup}
+            onLoginClick={() => setActiveTab('login')}
             onScrollToHowItWorks={() => {
               const el = document.getElementById('how-it-works');
               if (el) el.scrollIntoView({ behavior: 'smooth' });
             }}
+            currentUser={citizenUser}
+            userEcoPoints={citizenUser ? citizenUser.ecoPoints : userProfile.ecoPoints}
+            onRedeemReward={handleRedeemReward}
+            onOpenAiScanner={handleOpenAiScanner}
+            onTrackPickup={() => handleNavigate('track')}
           />
         )}
 
-        {activeTab === 'login' && (
+        {/* Unauthenticated gate guard — prevents accessing any internal view without signing in */}
+        {!citizenUser && activeTab !== 'home' && (
           <CitizenLoginPage
             onSuccess={handleLoginSuccess}
+            onSuccessDriver={handleDriverLoginSuccess}
+            onSuccessAdmin={() => {
+              window.location.href = '/admin';
+            }}
             onBackToHome={() => setActiveTab('home')}
-            title="Citizen Sign In"
-            subtitle="Sign in to request doorstep waste collections, track vehicles live, and earn green rewards."
+            onTrackPickup={() => {
+              handleLoginSuccess(DEMO_CITIZEN_USER);
+              setActiveTab('track');
+            }}
+            title="Login to EcoLoop"
+            subtitle="OR Simply want to track your pickup? Track Pickup"
           />
         )}
 
-        {activeTab === 'request' && (
+        {/* Authenticated views */}
+        {citizenUser && activeTab === 'request' && (
           <BookingWizard
             onSuccess={handleNewRequestSuccess}
-            onOpenAiScanner={() => setIsAiScannerOpen(true)}
+            onOpenAiScanner={handleOpenAiScanner}
             prefilledCategory={prefilledCategory}
             prefilledDescription={prefilledDescription}
             prefilledWeight={prefilledWeight}
@@ -336,28 +458,28 @@ export default function Home() {
           />
         )}
 
-        {activeTab === 'track' && (
+        {citizenUser && activeTab === 'track' && (
           <LiveTracker
             requests={requests}
             onRequestsUpdate={(updated) => {
               setRequests(updated);
               saveStoredRequests(updated);
             }}
-            onNavigateToBooking={() => setActiveTab('request')}
+            onNavigateToBooking={() => handleNavigate('request')}
           />
         )}
 
-        {activeTab === 'history' && (
+        {citizenUser && activeTab === 'history' && (
           <PickupHistory
             requests={requests}
             onSelectTrackRequest={(id) => {
-              setActiveTab('track');
+              handleNavigate('track');
             }}
             onRepeatPickup={handleRepeatPickup}
           />
         )}
 
-        {activeTab === 'analytics' && (
+        {citizenUser && activeTab === 'analytics' && (
           <CityAnalytics requests={requests} userProfile={userProfile} />
         )}
       </main>
@@ -400,7 +522,7 @@ export default function Home() {
         isOpen={isChatbotOpen}
         onClose={() => setIsChatbotOpen(false)}
         onOpenBooking={handleStartPickup}
-        onOpenScanner={() => setIsAiScannerOpen(true)}
+        onOpenScanner={handleOpenAiScanner}
         scannedContext={chatScannedContext}
       />
     </div>

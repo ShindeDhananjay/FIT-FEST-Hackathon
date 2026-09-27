@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   CheckCircle2,
@@ -137,6 +137,18 @@ export const BookingWizard: React.FC<BookingWizardProps> = ({
   const [scheduledSlot, setScheduledSlot] = useState(TIME_SLOTS[0]);
   const [contactName, setContactName] = useState(() => citizenUser?.name || 'Dhananjay Shinde');
   const [contactPhone, setContactPhone] = useState(() => citizenUser?.phone || '+91 98223 91023');
+
+  useEffect(() => {
+    if (prefilledCategory) {
+      setCategory(prefilledCategory);
+    }
+  }, [prefilledCategory]);
+
+  useEffect(() => {
+    if (prefilledWeight) {
+      setEstimatedWeightKg(prefilledWeight);
+    }
+  }, [prefilledWeight]);
 
   const selectedCategoryMeta = CATEGORIES.find((c) => c.id === category) || CATEGORIES[1];
   const activeCategoryInfo = WASTE_CATEGORIES[category];

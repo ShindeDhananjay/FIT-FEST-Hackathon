@@ -1,0 +1,40 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" fill="none">
+  <defs>
+    <linearGradient id="ecoBg" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#10b981" />
+      <stop offset="50%" stop-color="#059669" />
+      <stop offset="100%" stop-color="#0f766e" />
+    </linearGradient>
+    <filter id="ecoGlow" x="-15%" y="-15%" width="130%" height="130%">
+      <feDropShadow dx="0" dy="2" stdDeviation="2.5" flood-color="#064e3b" flood-opacity="0.3" />
+    </filter>
+  </defs>
+
+  <!-- Modern Rounded Emerald Square -->
+  <rect width="64" height="64" rx="16" fill="url(#ecoBg)" />
+
+  <!-- Inner Soft Ring -->
+  <circle cx="32" cy="32" r="24" stroke="rgba(255,255,255,0.15)" stroke-width="1.5" fill="none" />
+
+  <!-- EcoLoop Recycling Arrows in Pure White -->
+  <g filter="url(#ecoGlow)" stroke="#ffffff" stroke-width="4.5" stroke-linecap="round" stroke-linejoin="round" fill="none">
+    <!-- Top Arrow Segment -->
+    <path d="M22 22h16l-3-4" />
+    <path d="M38 22l-3 4" />
+    
+    <!-- Right Downward Arc -->
+    <path d="M42 26c3 4 3 10 0 14" />
+    <path d="M42 40l-2-4" />
+    <path d="M42 40l4-2" />
+
+    <!-- Bottom Leftward Segment -->
+    <path d="M40 44H24l3 4" />
+    <path d="M24 44l3-4" />
+
+    <!-- Left Upward Arc -->
+    <path d="M20 38c-3-4-3-10 0-14" />
+  </g>
+
+  <!-- Center Leaf Bud -->
+  <path d="M32 28c3 0 5 2 5 5s-3 4-5 4-5-2-5-4 2-5 5-5z" fill="#a7f3d0" opacity="0.9" />
+</svg>
