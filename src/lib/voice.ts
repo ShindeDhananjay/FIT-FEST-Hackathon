@@ -1,71 +1,82 @@
 /**
- * EcoLoop Voice Synthesis — "J.A.R.V.I.S." inspired, Indian-accented assistant.
- *
- * The trick to sounding natural with browser SpeechSynthesis:
- *   - SHORT sentences (not one long paragraph — that's what makes it sound robotic)
- *   - Near-natural speed (0.95–1.0) — slow rates = "can't read" feel
- *   - Sequential utterances with micro-pauses between them
- *   - Slightly deeper pitch for authority, but not too low
+ * EcoLoop Voice Synthesis — Indian Accent Assistant
+ * 
+ * Ensures authentic Indian English pronunciation:
+ * 1. Explicitly sets `utterance.lang = 'en-IN'` on every utterance so the browser
+ *    phonetic synthesizer switches to the Indian English phoneme model.
+ * 2. Strictly prioritizes Indian English voices (en-IN, Ravi, Prabhat, Neerja, Heera, Google India).
+ * 3. Fallbacks preserve Indian cadence with natural pitch and pacing.
  */
 
 // ---------------------------------------------------------------------------
-// Voice selection
+// Voice Selection — Strictly Prioritize Indian Accent (en-IN)
 // ---------------------------------------------------------------------------
 
-const VOICE_PRIORITY = [
+const INDIAN_VOICE_KEYWORDS = [
+  'en-in',
+  'india',
+  'indian',
   'ravi',                         // Microsoft Ravi (en-IN male)
-  'neerja online',                // Microsoft Neerja Online (en-IN natural)
-  'google india english',         // Chrome Indian English
-  'microsoft guy online',         // Windows 11 natural male
-  'guy online',
-  'daniel',                       // macOS British male (Jarvis-like)
-  'george',                       // Windows British male
-  'microsoft george',
-  'google uk english male',
-  'natural',
-  'neural',
-  'microsoft david',
-  'microsoft mark',
-  'google us english',
-  'alex',
-  'oliver',
+  'prabhat',                      // Microsoft Prabhat (en-IN male, natural)
+  'madhur',                       // Microsoft Madhur (hi-IN / en-IN male)
+  'neerja',                       // Microsoft Neerja (en-IN natural)
+  'heera',                        // Microsoft Heera (en-IN)
+  'swara',                        // Microsoft Swara (hi-IN)
+  'google हिन्दी',                 // Chrome Google Hindi / Indian
+  'google english (india)',
 ];
 
-const FEMALE_HINTS = ['female', 'zira', 'susan', 'hazel', 'jenny', 'aria', 'sonia', 'libby'];
+const FEMALE_HINTS = ['female', 'zira', 'susan', 'hazel', 'jenny', 'aria', 'libby'];
 
 function isFemale(name: string): boolean {
   const l = name.toLowerCase();
   return FEMALE_HINTS.some((h) => l.includes(h));
 }
 
-function pickVoice(voices: SpeechSynthesisVoice[]): SpeechSynthesisVoice | undefined {
-  const en = voices.filter((v) => v.lang.startsWith('en'));
-  if (!en.length) return voices[0];
+function pickIndianVoice(voices: SpeechSynthesisVoice[]): SpeechSynthesisVoice | undefined {
+  if (!voices || voices.length === 0) return undefined;
 
-  for (const kw of VOICE_PRIORITY) {
-    const m = en.find((v) => v.name.toLowerCase().includes(kw) && !isFemale(v.name));
-    if (m) return m;
-  }
+  // 1. First priority: Indian English Male voice
+  const indianMale = voices.find((v) => {
+    const lang = (v.lang || '').toLowerCase().replace('_', '-');
+    const name = (v.name || '').toLowerCase();
+    const isIndian = lang.startsWith('en-in') || INDIAN_VOICE_KEYWORDS.some((kw) => name.includes(kw));
+    return isIndian && !isFemale(name);
+  });
+  if (indianMale) return indianMale;
 
-  // en-IN fallback
-  const india = en.find((v) => v.lang === 'en-IN' && !isFemale(v.name));
-  if (india) return india;
+  // 2. Second priority: Any Indian English voice (even natural female like Neerja / Heera has authentic Indian accent)
+  const anyIndian = voices.find((v) => {
+    const lang = (v.lang || '').toLowerCase().replace('_', '-');
+    const name = (v.name || '').toLowerCase();
+    return lang.startsWith('en-in') || INDIAN_VOICE_KEYWORDS.some((kw) => name.includes(kw));
+  });
+  if (anyIndian) return anyIndian;
 
-  return en.find((v) => !isFemale(v.name)) || en[0];
+  // 3. Third priority: British English male (Daniel, George) which has close formal cadence
+  const britishMale = voices.find((v) => {
+    const lang = (v.lang || '').toLowerCase().replace('_', '-');
+    const name = (v.name || '').toLowerCase();
+    return (lang.startsWith('en-gb') || name.includes('uk') || name.includes('george') || name.includes('daniel')) && !isFemale(name);
+  });
+  if (britishMale) return britishMale;
+
+  // 4. Any English non-female
+  const anyMale = voices.find((v) => v.lang.startsWith('en') && !isFemale(v.name));
+  if (anyMale) return anyMale;
+
+  // 5. Default
+  return voices.find((v) => v.lang.startsWith('en')) || voices[0];
 }
 
 // ---------------------------------------------------------------------------
-// Sequential speaking engine — the secret sauce
+// Sequential speaking engine
 // ---------------------------------------------------------------------------
 
-/**
- * Speaks an array of short sentences one after another with a small gap.
- * This sounds 10x more natural than one giant utterance.
- */
 function speakSequence(
   lines: string[],
   voice: SpeechSynthesisVoice | undefined,
-  gapMs = 250
+  gapMs = 280
 ): void {
   let index = 0;
 
@@ -73,25 +84,30 @@ function speakSequence(
     if (index >= lines.length) return;
 
     const utt = new SpeechSynthesisUtterance(lines[index]);
-    if (voice) utt.voice = voice;
 
-    // Natural Jarvis-like acoustic profile:
-    // Pitch 0.92 — slightly deeper but not comically low
-    // Rate 0.97 — near-natural speed, confident, not sluggish
-    utt.pitch = 0.92;
-    utt.rate = 0.97;
+    // Force Indian English language code on the utterance
+    // This is CRITICAL: it instructs Chrome/Edge TTS engines to apply Indian English phonetics
+    utt.lang = 'en-IN';
+
+    if (voice) {
+      utt.voice = voice;
+    }
+
+    // Acoustic parameters for warm, crisp Indian conversational delivery:
+    // Pitch 0.95: Natural male tone
+    // Rate 0.98: Fluent, natural Indian conversational pacing
+    utt.pitch = 0.95;
+    utt.rate = 0.98;
     utt.volume = 1;
 
     utt.onend = () => {
       index++;
       if (index < lines.length) {
-        // Small pause between sentences — feels like natural breathing
         setTimeout(speakNext, gapMs);
       }
     };
 
     utt.onerror = () => {
-      // Skip to next sentence on error
       index++;
       if (index < lines.length) setTimeout(speakNext, gapMs);
     };
@@ -103,32 +119,20 @@ function speakSequence(
 }
 
 // ---------------------------------------------------------------------------
-// Message builder
+// Natural Indian English Message Script
 // ---------------------------------------------------------------------------
 
 function buildLines(name: string, points: number): string[] {
   const first = name ? name.split(' ')[0] : 'Citizen';
+  const pointsStr = points === 1 ? '1 EcoPoint' : `${points} EcoPoints`;
 
-  // Randomize the opener so it doesn't repeat every login
-  const openers = [
-    `Hello ${first}, welcome back.`,
-    `Good to see you, ${first}.`,
-    `Welcome back, ${first}.`,
+  return [
+    `Hello, welcome back ${first}.`,
+    `Your current score is ${pointsStr}.`,
+    points > 0
+      ? 'Keep settling up your garbage and earn rewards!'
+      : 'Start settling up your garbage today to earn exciting rewards!',
   ];
-  const opener = openers[Math.floor(Math.random() * openers.length)];
-
-  const pointsStr = points === 1 ? '1 eco point' : `${points} eco points`;
-
-  // Each line is short and punchy — Jarvis style
-  const lines = [opener, `Your score is ${pointsStr}.`];
-
-  if (points > 0) {
-    lines.push('Keep recycling and earning rewards.');
-  } else {
-    lines.push('Start recycling to earn your first points.');
-  }
-
-  return lines;
 }
 
 // ---------------------------------------------------------------------------
@@ -145,14 +149,13 @@ export const playLoginWelcomeVoice = (userName: string, ecoPoints: number): void
 
     const fire = () => {
       const voices = window.speechSynthesis.getVoices();
-      const chosen = voices?.length ? pickVoice(voices) : undefined;
+      const chosen = voices?.length ? pickIndianVoice(voices) : undefined;
 
       if (chosen) {
-        console.info(`[EcoLoop Voice] Using: "${chosen.name}" (${chosen.lang})`);
+        console.info(`[EcoLoop Voice] Selected Indian Accent Voice: "${chosen.name}" (${chosen.lang})`);
       }
 
-      // Speak each sentence separately with pauses — smooth & natural
-      speakSequence(lines, chosen, 300);
+      speakSequence(lines, chosen, 280);
     };
 
     const available = window.speechSynthesis.getVoices();
