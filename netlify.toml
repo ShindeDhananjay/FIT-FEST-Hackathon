@@ -8,6 +8,10 @@
 [build.environment]
   NODE_VERSION = "20"
   NPM_FLAGS = "--legacy-peer-deps"
+  # Tell Netlify secrets scanner to ignore these keys in build output.
+  # Next.js embeds server-side env vars into SSR/turbopack cache chunks — this is expected and safe.
+  SECRETS_SCAN_OMIT_KEYS = "NEXT_PUBLIC_API_URL,GEMINI_API_KEY,MONGODB_URI,MONGODB_FALLBACK_URI"
+  SECRETS_SCAN_OMIT_PATHS = ".next/cache,.netlify/.next/cache"
 
 [[headers]]
   for = "/*"

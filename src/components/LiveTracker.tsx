@@ -440,22 +440,7 @@ export const LiveTracker: React.FC<LiveTrackerProps> = ({
                           referrerPolicy="no-referrer-when-downgrade"
                         />
 
-                        {/* Floating live driver HUD badge on top of Google Map */}
-                        <div className="absolute top-3 left-3 z-10 flex flex-col gap-1.5 pointer-events-none">
-                          <div className="bg-slate-950/90 backdrop-blur-md px-3 py-1.5 rounded-xl border border-emerald-500/40 shadow-lg flex items-center gap-2">
-                            <span className="w-2 h-2 rounded-full bg-emerald-400 animate-ping" />
-                            <Truck className="h-3.5 w-3.5 text-emerald-400" />
-                            <span className="text-xs font-mono font-bold text-white">
-                              {driver.vehicleNumber} ({driver.name})
-                            </span>
-                          </div>
-                          <div className="bg-slate-950/90 backdrop-blur-md px-3 py-1 rounded-xl border border-slate-800 shadow-md inline-flex items-center gap-1.5 self-start">
-                            <Clock className="h-3 w-3 text-cyan-400" />
-                            <span className="text-[11px] font-mono text-cyan-300 font-bold">
-                              ETA ~{etaMinutes} mins
-                            </span>
-                          </div>
-                        </div>
+
 
                         {/* Direct map attribution notice */}
                         <div className="absolute bottom-2 right-2 z-10 bg-slate-950/80 backdrop-blur-xs px-2.5 py-1 rounded-lg border border-slate-800 text-[10px] font-mono text-slate-400 pointer-events-none">
