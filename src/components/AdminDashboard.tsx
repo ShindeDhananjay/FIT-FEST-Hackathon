@@ -22,6 +22,9 @@ import {
   Phone,
   Radio,
   FileSpreadsheet,
+  Edit3,
+  Save,
+  Calendar,
 } from 'lucide-react';
 import { WastePickupRequest, CollectorDriver, RequestStatus, WasteCategory } from '@/types/waste';
 import { WASTE_CATEGORIES, PUNE_ZONES } from '@/constants/wasteCategories';
@@ -30,6 +33,7 @@ interface AdminDashboardProps {
   requests: WastePickupRequest[];
   drivers: CollectorDriver[];
   onRequestStatusChange: (requestId: string, newStatus: RequestStatus, driverId?: string) => void;
+  onRequestUpdate?: (updatedRequest: WastePickupRequest) => void;
   onSelectTrackRequest: (requestId: string) => void;
 }
 
@@ -53,6 +57,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
   requests,
   drivers,
   onRequestStatusChange,
+  onRequestUpdate,
   onSelectTrackRequest,
 }) => {
   const [searchQuery, setSearchQuery] = useState('');
@@ -60,6 +65,93 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
   const [selectedStatusFilter, setSelectedStatusFilter] = useState<string>('all');
   const [selectedZoneFilter, setSelectedZoneFilter] = useState<string>('all');
   const [assigningRequestId, setAssigningRequestId] = useState<string | null>(null);
+
+  // Edit/Update Modal State
+  const [editingRequest, setEditingRequest] = useState<WastePickupRequest | null>(null);
+  const [editCategory, setEditCategory] = useState<WasteCategory>('plastic');
+  const [editWeight, setEditWeight] = useState<number>(5);
+  const [editDescription, setEditDescription] = useState<string>('');
+  const [editZone, setEditZone] = useState<string>('Flora Institute of Technology Campus');
+  const [editAddress, setEditAddress] = useState<string>('');
+  const [editContactName, setEditContactName] = useState<string>('');
+  const [editContactPhone, setEditContactPhone] = useState<string>('');
+  const [editScheduledDate, setEditScheduledDate] = useState<string>('');
+  const [editScheduledSlot, setEditScheduledSlot] = useState<string>('');
+  const [editStatus, setEditStatus] = useState<RequestStatus>('submitted');
+  const [editDriverId, setEditDriverId] = useState<string>('');
+  const [saveSuccessMsg, setSaveSuccessMsg] = useState<string | null>(null);
+
+  const handleOpenEdit = (req: WastePickupRequest) => {
+    setEditingRequest(req);
+    setEditCategory(req.category);
+    setEditWeight(req.estimatedWeightKg);
+    setEditDescription(req.itemDescription || '');
+    setEditZone(req.cityZone);
+    setEditAddress(req.pickupAddress || '');
+    setEditContactName(req.contactName || '');
+    setEditContactPhone(req.contactPhone || '');
+    setEditScheduledDate(req.scheduledDate || '');
+    setEditScheduledSlot(req.scheduledSlot || '');
+    setEditStatus(req.status);
+    setEditDriverId(req.driver?.id || '');
+  };
+
+  const handleSaveEdit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!editingRequest) return;
+
+    const catInfo = WASTE_CATEGORIES[editCategory];
+    const co2PerKg = catInfo ? catInfo.co2Factor : 1.5;
+    const pointsPerKg = catInfo ? catInfo.ecoPointsPerKg : 15;
+
+    let assignedDriver = editingRequest.driver;
+    if (editDriverId) {
+      const foundDriver = drivers.find((d) => d.id === editDriverId);
+      if (foundDriver) {
+        assignedDriver = {
+          id: foundDriver.id,
+          name: foundDriver.name,
+          phone: foundDriver.phone,
+          vehicleNumber: foundDriver.vehicleNumber,
+          avatar: foundDriver.avatar,
+          etaMinutes: 15,
+        };
+      }
+    } else if (editStatus === 'submitted') {
+      assignedDriver = undefined;
+    }
+
+    const updated: WastePickupRequest = {
+      ...editingRequest,
+      category: editCategory,
+      estimatedWeightKg: Number(editWeight),
+      itemDescription: editDescription,
+      cityZone: editZone,
+      pickupAddress: editAddress,
+      contactName: editContactName,
+      contactPhone: editContactPhone,
+      scheduledDate: editScheduledDate,
+      scheduledSlot: editScheduledSlot,
+      status: editStatus,
+      driver: assignedDriver,
+      ecoPointsEarned: Math.round(Number(editWeight) * pointsPerKg),
+      co2OffsetKg: Number((Number(editWeight) * co2PerKg).toFixed(1)),
+      completedAt:
+        editStatus === 'completed' && !editingRequest.completedAt
+          ? new Date().toISOString()
+          : editingRequest.completedAt,
+    };
+
+    if (onRequestUpdate) {
+      onRequestUpdate(updated);
+    } else {
+      onRequestStatusChange(updated.id, updated.status, assignedDriver?.id);
+    }
+
+    setSaveSuccessMsg(`Updated ${updated.trackingCode} successfully!`);
+    setTimeout(() => setSaveSuccessMsg(null), 3000);
+    setEditingRequest(null);
+  };
 
   const filteredRequests = requests.filter((req) => {
     const matchesSearch =
@@ -327,6 +419,17 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                       {/* Actions */}
                       <td className="px-5 py-4">
                         <div className="flex items-center gap-2">
+                          {/* Edit / Update Entry Button */}
+                          <button
+                            type="button"
+                            onClick={() => handleOpenEdit(req)}
+                            className="px-2.5 py-1.5 rounded-lg text-xs font-bold bg-white hover:bg-indigo-50 text-indigo-700 border border-slate-200 hover:border-indigo-300 shadow-2xs transition-all cursor-pointer flex items-center gap-1"
+                            title="Edit or update this pickup entry"
+                          >
+                            <Edit3 className="h-3 w-3 text-indigo-600" />
+                            <span>Edit</span>
+                          </button>
+
                           {!isFinished ? (
                             <>
                               {req.status === 'submitted' && (
@@ -426,6 +529,262 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                 </button>
               ))}
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* Edit / Update Request Modal */}
+      {editingRequest && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 overflow-y-auto"
+          onClick={() => setEditingRequest(null)}
+        >
+          <div
+            className="bg-white rounded-3xl shadow-2xl max-w-xl w-full p-6 sm:p-7 space-y-5 my-8 max-h-[90vh] overflow-y-auto"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex items-center justify-between pb-3 border-b border-gray-100">
+              <div className="flex items-center gap-2.5">
+                <div className="w-9 h-9 rounded-xl bg-indigo-50 text-indigo-700 flex items-center justify-center font-bold">
+                  <Edit3 className="h-5 w-5" />
+                </div>
+                <div>
+                  <h3 className="text-lg font-black text-gray-900">
+                    Edit Pickup Entry: {editingRequest.trackingCode}
+                  </h3>
+                  <p className="text-xs text-gray-500">
+                    Update waste details, weight, dispatch status & logistics assignment.
+                  </p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setEditingRequest(null)}
+                className="p-1.5 rounded-lg text-gray-400 hover:text-gray-600 hover:bg-gray-100 cursor-pointer"
+              >
+                <X className="h-5 w-5" />
+              </button>
+            </div>
+
+            <form onSubmit={handleSaveEdit} className="space-y-4 text-xs">
+              
+              {/* Category & Weight */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div>
+                  <label className="block font-bold text-gray-700 mb-1">
+                    Material Category
+                  </label>
+                  <select
+                    value={editCategory}
+                    onChange={(e) => setEditCategory(e.target.value as WasteCategory)}
+                    className="w-full px-3 py-2 rounded-xl border border-gray-200 bg-white text-gray-900 font-semibold focus:ring-2 focus:ring-indigo-500 focus:outline-none"
+                  >
+                    {Object.values(WASTE_CATEGORIES).map((cat) => (
+                      <option key={cat.id} value={cat.id}>
+                        {cat.name} ({cat.ecoPointsPerKg} pts/kg)
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                <div>
+                  <label className="block font-bold text-gray-700 mb-1">
+                    Estimated Weight (Kg)
+                  </label>
+                  <input
+                    type="number"
+                    step="0.5"
+                    min="0.5"
+                    value={editWeight}
+                    onChange={(e) => setEditWeight(Math.max(0.5, parseFloat(e.target.value) || 0.5))}
+                    required
+                    className="w-full px-3 py-2 rounded-xl border border-gray-200 bg-white text-gray-900 font-semibold focus:ring-2 focus:ring-indigo-500 focus:outline-none"
+                  />
+                </div>
+              </div>
+
+              {/* Item Description */}
+              <div>
+                <label className="block font-bold text-gray-700 mb-1">
+                  Item Description
+                </label>
+                <input
+                  type="text"
+                  value={editDescription}
+                  onChange={(e) => setEditDescription(e.target.value)}
+                  placeholder="e.g. Cardboard boxes and study notes"
+                  className="w-full px-3 py-2 rounded-xl border border-gray-200 bg-white text-gray-900 focus:ring-2 focus:ring-indigo-500 focus:outline-none"
+                />
+              </div>
+
+              {/* Zone and Address */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div>
+                  <label className="block font-bold text-gray-700 mb-1">
+                    Pune Municipal Ward / Zone
+                  </label>
+                  <select
+                    value={editZone}
+                    onChange={(e) => setEditZone(e.target.value)}
+                    className="w-full px-3 py-2 rounded-xl border border-gray-200 bg-white text-gray-900 font-semibold focus:ring-2 focus:ring-indigo-500 focus:outline-none"
+                  >
+                    {PUNE_ZONES.map((zone) => (
+                      <option key={zone} value={zone}>
+                        {zone}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                <div>
+                  <label className="block font-bold text-gray-700 mb-1">
+                    Pickup Address
+                  </label>
+                  <input
+                    type="text"
+                    value={editAddress}
+                    onChange={(e) => setEditAddress(e.target.value)}
+                    placeholder="Doorstep address"
+                    required
+                    className="w-full px-3 py-2 rounded-xl border border-gray-200 bg-white text-gray-900 focus:ring-2 focus:ring-indigo-500 focus:outline-none"
+                  />
+                </div>
+              </div>
+
+              {/* Citizen Contact Name and Phone */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div>
+                  <label className="block font-bold text-gray-700 mb-1">
+                    Citizen Contact Name
+                  </label>
+                  <input
+                    type="text"
+                    value={editContactName}
+                    onChange={(e) => setEditContactName(e.target.value)}
+                    placeholder="Contact Name"
+                    className="w-full px-3 py-2 rounded-xl border border-gray-200 bg-white text-gray-900 focus:ring-2 focus:ring-indigo-500 focus:outline-none"
+                  />
+                </div>
+
+                <div>
+                  <label className="block font-bold text-gray-700 mb-1">
+                    Citizen Phone Number
+                  </label>
+                  <input
+                    type="tel"
+                    value={editContactPhone}
+                    onChange={(e) => setEditContactPhone(e.target.value)}
+                    placeholder="+91 98220 00000"
+                    className="w-full px-3 py-2 rounded-xl border border-gray-200 bg-white text-gray-900 focus:ring-2 focus:ring-indigo-500 focus:outline-none"
+                  />
+                </div>
+              </div>
+
+              {/* Status & Assigned Driver */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div>
+                  <label className="block font-bold text-gray-700 mb-1">
+                    Dispatch Status
+                  </label>
+                  <select
+                    value={editStatus}
+                    onChange={(e) => setEditStatus(e.target.value as RequestStatus)}
+                    className="w-full px-3 py-2 rounded-xl border border-gray-200 bg-white text-gray-900 font-bold focus:ring-2 focus:ring-indigo-500 focus:outline-none"
+                  >
+                    {STATUSES.map((st) => (
+                      <option key={st} value={st}>
+                        {st.replace(/_/g, ' ').toUpperCase()}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                <div>
+                  <label className="block font-bold text-gray-700 mb-1">
+                    Assigned Municipal Collector
+                  </label>
+                  <select
+                    value={editDriverId}
+                    onChange={(e) => setEditDriverId(e.target.value)}
+                    className="w-full px-3 py-2 rounded-xl border border-gray-200 bg-white text-gray-900 focus:ring-2 focus:ring-indigo-500 focus:outline-none"
+                  >
+                    <option value="">— Unassigned (Auto Allocate) —</option>
+                    {drivers.map((d) => (
+                      <option key={d.id} value={d.id}>
+                        {d.name} ({d.vehicleNumber} · {d.vehicleType})
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              </div>
+
+              {/* Schedule Date & Slot */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div>
+                  <label className="block font-bold text-gray-700 mb-1">
+                    Scheduled Date
+                  </label>
+                  <input
+                    type="date"
+                    value={editScheduledDate}
+                    onChange={(e) => setEditScheduledDate(e.target.value)}
+                    className="w-full px-3 py-2 rounded-xl border border-gray-200 bg-white text-gray-900 focus:ring-2 focus:ring-indigo-500 focus:outline-none"
+                  />
+                </div>
+
+                <div>
+                  <label className="block font-bold text-gray-700 mb-1">
+                    Time Slot
+                  </label>
+                  <select
+                    value={editScheduledSlot}
+                    onChange={(e) => setEditScheduledSlot(e.target.value)}
+                    className="w-full px-3 py-2 rounded-xl border border-gray-200 bg-white text-gray-900 focus:ring-2 focus:ring-indigo-500 focus:outline-none"
+                  >
+                    <option value="Morning (09:00 AM - 12:00 PM)">Morning (09:00 AM - 12:00 PM)</option>
+                    <option value="Afternoon (01:00 PM - 04:00 PM)">Afternoon (01:00 PM - 04:00 PM)</option>
+                    <option value="Evening (04:30 PM - 07:30 PM)">Evening (04:30 PM - 07:30 PM)</option>
+                  </select>
+                </div>
+              </div>
+
+              {/* Recalculated Impact Preview */}
+              <div className="p-3 rounded-2xl bg-indigo-50/70 border border-indigo-100 flex items-center justify-between text-indigo-950">
+                <span className="font-semibold">Calculated Impact:</span>
+                <span className="font-bold">
+                  +{Math.round(editWeight * (WASTE_CATEGORIES[editCategory]?.ecoPointsPerKg || 15))} EcoPoints · ~{((editWeight) * (WASTE_CATEGORIES[editCategory]?.co2Factor || 1.5)).toFixed(1)} kg CO₂ Saved
+                </span>
+              </div>
+
+              {/* Action Buttons */}
+              <div className="flex items-center justify-end gap-2.5 pt-3 border-t border-gray-100">
+                <button
+                  type="button"
+                  onClick={() => setEditingRequest(null)}
+                  className="px-4 py-2 rounded-xl text-xs font-semibold text-gray-600 hover:bg-gray-100 transition-colors cursor-pointer"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  className="px-5 py-2 rounded-xl text-xs font-bold bg-indigo-600 hover:bg-indigo-700 text-white shadow-md shadow-indigo-600/20 transition-all cursor-pointer flex items-center gap-1.5"
+                >
+                  <Save className="h-3.5 w-3.5" />
+                  <span>Save Changes</span>
+                </button>
+              </div>
+
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Toast Notification */}
+      {saveSuccessMsg && (
+        <div className="fixed bottom-6 right-6 z-50 animate-bounce">
+          <div className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-emerald-600 text-white font-bold text-xs shadow-lg shadow-emerald-600/30">
+            <CheckCircle2 className="h-4 w-4" />
+            <span>{saveSuccessMsg}</span>
           </div>
         </div>
       )}

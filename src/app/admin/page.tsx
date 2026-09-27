@@ -166,6 +166,22 @@ export default function AdminPage() {
     }
   };
 
+  const handleRequestUpdate = async (updatedReq: WastePickupRequest) => {
+    const updated = requests.map((req) => (req.id === updatedReq.id ? updatedReq : req));
+    setRequests(updated);
+    saveStoredRequests(updated);
+
+    try {
+      await fetch(getApiUrl('/api/requests'), {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(updatedReq),
+      });
+    } catch (err) {
+      console.error('Failed updating request in MongoDB Atlas', err);
+    }
+  };
+
   // LOGIN SCREEN (Exact same component and theme as Citizen & Driver login)
   if (!isAuthenticated) {
     return (
@@ -248,6 +264,7 @@ export default function AdminPage() {
           requests={requests}
           drivers={drivers}
           onRequestStatusChange={handleRequestStatusChange}
+          onRequestUpdate={handleRequestUpdate}
           onSelectTrackRequest={() => {}}
         />
       </main>

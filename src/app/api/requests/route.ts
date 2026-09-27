@@ -91,7 +91,12 @@ export async function POST(req: NextRequest) {
 
 export async function PATCH(req: NextRequest) {
   try {
-    const { id, status, driver, completedAt, certificateId } = await req.json();
+    const body = await req.json();
+    const { id } = body;
+
+    if (!id) {
+      return NextResponse.json({ success: false, message: 'Missing request id' }, { status: 400 });
+    }
 
     // Update in-memory store
     if (global.inMemoryRequestsStore) {
@@ -99,10 +104,7 @@ export async function PATCH(req: NextRequest) {
         if (item.id === id) {
           return {
             ...item,
-            ...(status && { status }),
-            ...(driver !== undefined && { driver }),
-            ...(completedAt && { completedAt }),
-            ...(certificateId && { certificateId }),
+            ...body,
           };
         }
         return item;
@@ -112,15 +114,10 @@ export async function PATCH(req: NextRequest) {
     const conn = await connectToDatabase();
     if (conn) {
       try {
-        const updateData: any = {};
-        if (status) updateData.status = status;
-        if (driver !== undefined) updateData.driver = driver;
-        if (completedAt) updateData.completedAt = completedAt;
-        if (certificateId) updateData.certificateId = certificateId;
-
+        const { id: _, ...updateFields } = body;
         const updated = await WasteRequestModel.findOneAndUpdate(
           { id },
-          { $set: updateData },
+          { $set: updateFields },
           { new: true }
         );
 
@@ -134,7 +131,7 @@ export async function PATCH(req: NextRequest) {
     return NextResponse.json({
       success: true,
       connected: false,
-      data: targetItem || { id, status },
+      data: targetItem || body,
     });
   } catch (error: any) {
     console.error('API PATCH /api/requests error:', error);

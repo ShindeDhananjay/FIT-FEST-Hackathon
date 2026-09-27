@@ -17,6 +17,8 @@ import {
   Sparkles,
   ExternalLink,
   ShieldCheck,
+  ArrowLeft,
+  Home,
 } from 'lucide-react';
 import { CitizenUser, CollectorDriver } from '@/types/waste';
 import { getStoredCitizenUser, saveStoredCitizenUser, DEMO_DRIVER, saveStoredActiveDriver } from '@/lib/storage';
@@ -257,20 +259,19 @@ export const CitizenLoginPage: React.FC<CitizenLoginPageProps> = ({
         
         {/* Top Navbar Row */}
         <div className="flex items-center justify-between gap-3 w-full pb-2 sm:pb-3 shrink-0">
-          {/* Mobile Logo display */}
-          <div
-            className="flex items-center gap-2 cursor-pointer lg:hidden"
+          {/* Back to Homescreen Button */}
+          <button
+            type="button"
             onClick={onBackToHome}
+            className="inline-flex items-center gap-2 px-3 py-1.5 rounded-lg border border-slate-200 bg-white hover:bg-slate-50 text-slate-700 text-xs font-bold transition-all shadow-2xs hover:border-emerald-300 cursor-pointer group"
+            title="Return to EcoLoop Homescreen"
           >
-            <div className="w-8 h-8 rounded-lg bg-teal-600 flex items-center justify-center text-white font-bold text-xs">
-              EL
-            </div>
-            <span className="font-extrabold text-slate-900 text-base sm:text-lg">Eco<span className="text-teal-600">Loop</span></span>
-          </div>
+            <ArrowLeft className="h-3.5 w-3.5 text-slate-500 group-hover:-translate-x-0.5 transition-transform" />
+            <Home className="h-3.5 w-3.5 text-emerald-600" />
+            <span>Back to Homescreen</span>
+          </button>
 
-          <div className="hidden lg:block" />
-
-          {/* Top-Right Secondary Action (Track Pickup Button as seen in Shipmozo) */}
+          {/* Top-Right Secondary Action (Track Pickup Button) */}
           <div className="flex items-center gap-2">
             <button
               type="button"
@@ -480,6 +481,16 @@ export const CitizenLoginPage: React.FC<CitizenLoginPageProps> = ({
                   </svg>
                   <span>Sign in with Google Workspace</span>
                 </button>
+
+                {/* Back to Homescreen */}
+                <button
+                  type="button"
+                  onClick={onBackToHome}
+                  className="w-full mt-1.5 py-2 rounded-lg border border-slate-200 hover:bg-slate-50 text-slate-600 font-semibold text-[11px] sm:text-xs flex items-center justify-center gap-1.5 transition-colors cursor-pointer"
+                >
+                  <Home className="h-3.5 w-3.5 text-emerald-600" />
+                  <span>Back to Homescreen</span>
+                </button>
               </form>
             </div>
           ) : role === 'driver' ? (
@@ -607,6 +618,16 @@ export const CitizenLoginPage: React.FC<CitizenLoginPageProps> = ({
                       <span>Log In to Driver Console</span>
                     </>
                   )}
+                </button>
+
+                {/* Back to Homescreen */}
+                <button
+                  type="button"
+                  onClick={onBackToHome}
+                  className="w-full mt-1.5 py-2 rounded-lg border border-slate-200 hover:bg-slate-50 text-slate-600 font-semibold text-[11px] sm:text-xs flex items-center justify-center gap-1.5 transition-colors cursor-pointer"
+                >
+                  <Home className="h-3.5 w-3.5 text-emerald-600" />
+                  <span>Back to Homescreen</span>
                 </button>
               </form>
             </div>
@@ -797,6 +818,16 @@ export const CitizenLoginPage: React.FC<CitizenLoginPageProps> = ({
                 <span>Track Pickup</span>
                 <ExternalLink className="h-3 w-3 text-slate-400" />
               </button>
+
+              {/* Back to Homescreen */}
+              <button
+                type="button"
+                onClick={onBackToHome}
+                className="w-full mt-1.5 py-2 rounded-lg border border-slate-200 hover:bg-slate-50 text-slate-600 font-semibold text-[11px] sm:text-xs flex items-center justify-center gap-1.5 transition-colors cursor-pointer"
+              >
+                <Home className="h-3.5 w-3.5 text-emerald-600" />
+                <span>Back to Homescreen</span>
+              </button>
             </form>
           ) : (
             /* Register Mode */
@@ -889,6 +920,16 @@ export const CitizenLoginPage: React.FC<CitizenLoginPageProps> = ({
                   Log In
                 </button>
               </div>
+
+              {/* Back to Homescreen */}
+              <button
+                type="button"
+                onClick={onBackToHome}
+                className="w-full mt-1.5 py-2 rounded-lg border border-slate-200 hover:bg-slate-50 text-slate-600 font-semibold text-[11px] sm:text-xs flex items-center justify-center gap-1.5 transition-colors cursor-pointer"
+              >
+                <Home className="h-3.5 w-3.5 text-emerald-600" />
+                <span>Back to Homescreen</span>
+              </button>
             </form>
           )}
           </div>
