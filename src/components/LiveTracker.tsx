@@ -18,8 +18,9 @@ import {
   Check,
   ShieldCheck,
   Navigation,
-  Compass,
   Radio,
+  ExternalLink,
+  Layers,
 } from 'lucide-react';
 import { WastePickupRequest, CollectorDriver, RequestStatus } from '@/types/waste';
 
@@ -72,6 +73,7 @@ export const LiveTracker: React.FC<LiveTrackerProps> = ({
   const [isSimulating, setIsSimulating] = useState(false);
   const [etaMinutes, setEtaMinutes] = useState(12);
   const [copiedCode, setCopiedCode] = useState(false);
+  const [mapMode, setMapMode] = useState<'google' | 'radar'>('google');
 
   // Active requests sorted newest first
   const activeRequests = requests
@@ -333,95 +335,212 @@ export const LiveTracker: React.FC<LiveTrackerProps> = ({
 
             {/* RIGHT COLUMN: Expansive Full Screen Live Map (7 Cols) */}
             <div className="lg:col-span-7">
-              <div className="bg-slate-950 rounded-3xl p-6 sm:p-8 text-white shadow-xl border border-slate-800 relative overflow-hidden min-h-[460px] flex flex-col justify-between">
-                
-                {/* SVG Map Grid Background */}
-                <svg className="absolute inset-0 w-full h-full opacity-20 pointer-events-none" xmlns="http://www.w3.org/2000/svg">
-                  <defs>
-                    <pattern id="fullGrid" width="48" height="48" patternUnits="userSpaceOnUse">
-                      <path d="M 48 0 L 0 0 0 48" fill="none" stroke="#475569" strokeWidth="0.8" />
-                    </pattern>
-                  </defs>
-                  <rect width="100%" height="100%" fill="url(#fullGrid)" />
-                  <path d="M 0 200 Q 300 160 600 240 T 1200 260" fill="none" stroke="#0284c7" strokeWidth="8" opacity="0.3" />
-                  <path d="M 80 80 L 320 220 L 640 180 L 900 120" fill="none" stroke="#64748b" strokeWidth="4" />
-                  <path d="M 160 380 L 320 220 L 480 340 L 800 360" fill="none" stroke="#64748b" strokeWidth="4" />
-                  {/* Transit line */}
-                  <path d="M 120 100 Q 320 220 700 280" fill="none" stroke="#10b981" strokeWidth="5" strokeDasharray="10 6" className="animate-pulse" />
-                </svg>
+              {(() => {
+                const depotAddress = 'PMC Solid Waste Transfer Station, Karve Road, Pune, Maharashtra';
+                const pickupAddressText = selectedRequest.pickupAddress
+                  ? `${selectedRequest.pickupAddress}, Pune, Maharashtra`
+                  : `${selectedRequest.cityZone}, Pune, Maharashtra`;
+                const googleMapEmbedUrl = `https://maps.google.com/maps?saddr=${encodeURIComponent(
+                  depotAddress
+                )}&daddr=${encodeURIComponent(pickupAddressText)}&t=m&z=13&output=embed`;
+                const googleMapsDirectionsUrl = `https://www.google.com/maps/dir/?api=1&origin=${encodeURIComponent(
+                  depotAddress
+                )}&destination=${encodeURIComponent(pickupAddressText)}`;
 
-                {/* Top Radar Bar */}
-                <div className="relative z-10 flex items-center justify-between">
-                  <div className="flex items-center gap-2 bg-slate-900/90 backdrop-blur-md px-3.5 py-1.5 rounded-xl border border-slate-800">
-                    <Radio className="h-3.5 w-3.5 text-emerald-400 animate-pulse" />
-                    <span className="text-xs font-mono text-emerald-300 font-bold">
-                      PMC GPS Live: Ward {selectedRequest.cityZone.split(',')[0]}
-                    </span>
-                  </div>
+                return (
+                  <div className="bg-slate-950 rounded-3xl p-5 sm:p-7 text-white shadow-xl border border-slate-800 relative overflow-hidden flex flex-col justify-between gap-5">
+                    
+                    {/* Top Radar & View Switcher Bar */}
+                    <div className="flex flex-wrap items-center justify-between gap-3">
+                      <div className="flex items-center gap-2 bg-slate-900/90 backdrop-blur-md px-3.5 py-1.5 rounded-xl border border-slate-800">
+                        <Radio className="h-3.5 w-3.5 text-emerald-400 animate-pulse" />
+                        <span className="text-xs font-mono text-emerald-300 font-bold">
+                          PMC GPS Live: Ward {selectedRequest.cityZone.split(',')[0]}
+                        </span>
+                      </div>
 
-                  <span className="text-xs font-mono text-cyan-400 bg-slate-900/90 px-3 py-1.5 rounded-xl border border-slate-800">
-                    Driver ETA: ~{etaMinutes} mins
-                  </span>
-                </div>
+                      <div className="flex items-center gap-2">
+                        {/* Map Mode Toggle */}
+                        <div className="flex items-center p-1 bg-slate-900 rounded-xl border border-slate-800 text-xs font-semibold">
+                          <button
+                            type="button"
+                            onClick={() => setMapMode('google')}
+                            className={`px-3 py-1 rounded-lg transition-colors cursor-pointer flex items-center gap-1.5 ${
+                              mapMode === 'google'
+                                ? 'bg-emerald-600 text-white shadow-xs'
+                                : 'text-slate-400 hover:text-white'
+                            }`}
+                          >
+                            <MapPin className="h-3 w-3" />
+                            <span>Google Map</span>
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => setMapMode('radar')}
+                            className={`px-3 py-1 rounded-lg transition-colors cursor-pointer flex items-center gap-1.5 ${
+                              mapMode === 'radar'
+                                ? 'bg-emerald-600 text-white shadow-xs'
+                                : 'text-slate-400 hover:text-white'
+                            }`}
+                          >
+                            <Radio className="h-3 w-3" />
+                            <span>Radar</span>
+                          </button>
+                        </div>
 
-                {/* Center Route Diagram */}
-                <div className="relative z-10 my-16 flex items-center justify-around">
-                  {/* Municipal Depot */}
-                  <div className="flex flex-col items-center">
-                    <div className="w-12 h-12 rounded-2xl bg-slate-900 border-2 border-slate-700 flex items-center justify-center text-slate-300 shadow-xl">
-                      <Recycle className="h-6 w-6 text-emerald-400" />
-                    </div>
-                    <span className="text-xs font-bold text-slate-300 mt-2">PMC Depot</span>
-                    <span className="text-[10px] text-slate-500 font-mono">Karve Rd Hub</span>
-                  </div>
-
-                  {/* Electric Vehicle Pulse */}
-                  <div className="flex flex-col items-center">
-                    <div className="relative">
-                      <span className="absolute -inset-3 rounded-full bg-emerald-500/20 animate-ping" />
-                      <div className="w-14 h-14 rounded-2xl bg-gradient-to-tr from-emerald-600 to-teal-500 flex items-center justify-center text-white shadow-2xl shadow-emerald-500/40 ring-4 ring-emerald-400/30">
-                        <Truck className="h-7 w-7" />
+                        {/* Open in Google Maps External App */}
+                        <a
+                          href={googleMapsDirectionsUrl}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-slate-900 hover:bg-slate-800 border border-slate-700 text-cyan-300 hover:text-cyan-200 text-xs font-mono font-bold transition-all shadow-xs cursor-pointer"
+                          title="Open turn-by-turn navigation in Google Maps"
+                        >
+                          <span>Directions</span>
+                          <ExternalLink className="h-3 w-3" />
+                        </a>
                       </div>
                     </div>
-                    <span className="text-xs font-mono font-black text-emerald-300 mt-3 bg-emerald-950 px-2.5 py-1 rounded-lg border border-emerald-500/40 shadow-xs">
-                      {driver.vehicleNumber}
-                    </span>
-                    <span className="text-[10px] text-emerald-400 font-semibold mt-0.5">
-                      {driver.name}
-                    </span>
-                  </div>
 
-                  {/* Citizen Doorstep */}
-                  <div className="flex flex-col items-center">
-                    <div className="w-12 h-12 rounded-2xl bg-emerald-500/20 border-2 border-emerald-500 text-emerald-400 flex items-center justify-center shadow-xl">
-                      <MapPin className="h-6 w-6" />
+                    {/* Route Address Pin Header */}
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 bg-slate-900/90 backdrop-blur-md p-3 rounded-2xl border border-slate-800 text-xs">
+                      <div className="flex items-center gap-2">
+                        <div className="w-6 h-6 rounded-lg bg-emerald-500/20 text-emerald-400 flex items-center justify-center shrink-0">
+                          <Recycle className="h-3.5 w-3.5" />
+                        </div>
+                        <div className="min-w-0">
+                          <span className="text-[10px] text-slate-400 uppercase font-mono block">Origin (PMC Depot)</span>
+                          <span className="text-white font-semibold truncate block">PMC Solid Waste Depot, Karve Rd</span>
+                        </div>
+                      </div>
+
+                      <div className="flex items-center gap-2 border-t sm:border-t-0 sm:border-l border-slate-800 pt-2 sm:pt-0 sm:pl-3">
+                        <div className="w-6 h-6 rounded-lg bg-cyan-500/20 text-cyan-400 flex items-center justify-center shrink-0">
+                          <MapPin className="h-3.5 w-3.5" />
+                        </div>
+                        <div className="min-w-0">
+                          <span className="text-[10px] text-slate-400 uppercase font-mono block">Pickup Point (Address)</span>
+                          <span className="text-white font-semibold truncate block" title={selectedRequest.pickupAddress || selectedRequest.cityZone}>
+                            {selectedRequest.pickupAddress || selectedRequest.cityZone}
+                          </span>
+                        </div>
+                      </div>
                     </div>
-                    <span className="text-xs font-bold text-emerald-300 mt-2">Your Home</span>
-                    <span className="text-[10px] text-slate-400 font-mono">Pickup Point</span>
-                  </div>
-                </div>
 
-                {/* Bottom Live Metrics */}
-                <div className="relative z-10 grid grid-cols-2 sm:grid-cols-4 gap-3 pt-4 border-t border-slate-800 text-xs font-mono">
-                  <div className="bg-slate-900/80 p-2.5 rounded-xl border border-slate-800">
-                    <span className="text-slate-400 text-[10px] uppercase font-sans font-bold block">Vehicle Type</span>
-                    <span className="text-white font-bold">{driver.vehicleType}</span>
-                  </div>
-                  <div className="bg-slate-900/80 p-2.5 rounded-xl border border-slate-800">
-                    <span className="text-slate-400 text-[10px] uppercase font-sans font-bold block">Driver Phone</span>
-                    <span className="text-emerald-400 font-bold">{driver.phone}</span>
-                  </div>
-                  <div className="bg-slate-900/80 p-2.5 rounded-xl border border-slate-800">
-                    <span className="text-slate-400 text-[10px] uppercase font-sans font-bold block">Status</span>
-                    <span className="text-amber-300 font-bold capitalize">{selectedRequest.status.replace(/_/g, ' ')}</span>
-                  </div>
-                  <div className="bg-slate-900/80 p-2.5 rounded-xl border border-slate-800">
-                    <span className="text-slate-400 text-[10px] uppercase font-sans font-bold block">CO₂ Saved</span>
-                    <span className="text-teal-300 font-bold">~{selectedRequest.co2OffsetKg} kg</span>
-                  </div>
-                </div>
+                    {/* MAP DISPLAY: Real Google Map OR Radar Schematic */}
+                    {mapMode === 'google' ? (
+                      <div className="relative rounded-2xl overflow-hidden border border-slate-800 bg-slate-900 min-h-[380px] sm:min-h-[420px] shadow-inner">
+                        {/* Interactive Google Map iframe */}
+                        <iframe
+                          title="PMC Depot to Pickup Location Route"
+                          src={googleMapEmbedUrl}
+                          className="w-full h-[380px] sm:h-[420px] border-0 filter contrast-[1.05]"
+                          loading="lazy"
+                          allowFullScreen
+                          referrerPolicy="no-referrer-when-downgrade"
+                        />
 
-              </div>
+                        {/* Floating live driver HUD badge on top of Google Map */}
+                        <div className="absolute top-3 left-3 z-10 flex flex-col gap-1.5 pointer-events-none">
+                          <div className="bg-slate-950/90 backdrop-blur-md px-3 py-1.5 rounded-xl border border-emerald-500/40 shadow-lg flex items-center gap-2">
+                            <span className="w-2 h-2 rounded-full bg-emerald-400 animate-ping" />
+                            <Truck className="h-3.5 w-3.5 text-emerald-400" />
+                            <span className="text-xs font-mono font-bold text-white">
+                              {driver.vehicleNumber} ({driver.name})
+                            </span>
+                          </div>
+                          <div className="bg-slate-950/90 backdrop-blur-md px-3 py-1 rounded-xl border border-slate-800 shadow-md inline-flex items-center gap-1.5 self-start">
+                            <Clock className="h-3 w-3 text-cyan-400" />
+                            <span className="text-[11px] font-mono text-cyan-300 font-bold">
+                              ETA ~{etaMinutes} mins
+                            </span>
+                          </div>
+                        </div>
+
+                        {/* Direct map attribution notice */}
+                        <div className="absolute bottom-2 right-2 z-10 bg-slate-950/80 backdrop-blur-xs px-2.5 py-1 rounded-lg border border-slate-800 text-[10px] font-mono text-slate-400 pointer-events-none">
+                          PMC Depot ➔ {selectedRequest.cityZone}
+                        </div>
+                      </div>
+                    ) : (
+                      /* Schematic Radar Display */
+                      <div className="relative rounded-2xl overflow-hidden border border-slate-800 bg-slate-950 min-h-[380px] sm:min-h-[420px] flex flex-col justify-center">
+                        <svg className="absolute inset-0 w-full h-full opacity-20 pointer-events-none" xmlns="http://www.w3.org/2000/svg">
+                          <defs>
+                            <pattern id="fullGrid" width="48" height="48" patternUnits="userSpaceOnUse">
+                              <path d="M 48 0 L 0 0 0 48" fill="none" stroke="#475569" strokeWidth="0.8" />
+                            </pattern>
+                          </defs>
+                          <rect width="100%" height="100%" fill="url(#fullGrid)" />
+                          <path d="M 0 200 Q 300 160 600 240 T 1200 260" fill="none" stroke="#0284c7" strokeWidth="8" opacity="0.3" />
+                          <path d="M 80 80 L 320 220 L 640 180 L 900 120" fill="none" stroke="#64748b" strokeWidth="4" />
+                          <path d="M 160 380 L 320 220 L 480 340 L 800 360" fill="none" stroke="#64748b" strokeWidth="4" />
+                          <path d="M 120 100 Q 320 220 700 280" fill="none" stroke="#10b981" strokeWidth="5" strokeDasharray="10 6" className="animate-pulse" />
+                        </svg>
+
+                        <div className="relative z-10 flex items-center justify-around py-12 px-4">
+                          {/* Municipal Depot */}
+                          <div className="flex flex-col items-center">
+                            <div className="w-12 h-12 rounded-2xl bg-slate-900 border-2 border-slate-700 flex items-center justify-center text-slate-300 shadow-xl">
+                              <Recycle className="h-6 w-6 text-emerald-400" />
+                            </div>
+                            <span className="text-xs font-bold text-slate-300 mt-2">PMC Depot</span>
+                            <span className="text-[10px] text-slate-500 font-mono">Karve Rd Hub</span>
+                          </div>
+
+                          {/* Electric Vehicle Pulse */}
+                          <div className="flex flex-col items-center">
+                            <div className="relative">
+                              <span className="absolute -inset-3 rounded-full bg-emerald-500/20 animate-ping" />
+                              <div className="w-14 h-14 rounded-2xl bg-gradient-to-tr from-emerald-600 to-teal-500 flex items-center justify-center text-white shadow-2xl shadow-emerald-500/40 ring-4 ring-emerald-400/30">
+                                <Truck className="h-7 w-7" />
+                              </div>
+                            </div>
+                            <span className="text-xs font-mono font-black text-emerald-300 mt-3 bg-emerald-950 px-2.5 py-1 rounded-lg border border-emerald-500/40 shadow-xs">
+                              {driver.vehicleNumber}
+                            </span>
+                            <span className="text-[10px] text-emerald-400 font-semibold mt-0.5">
+                              {driver.name}
+                            </span>
+                          </div>
+
+                          {/* Citizen Doorstep */}
+                          <div className="flex flex-col items-center">
+                            <div className="w-12 h-12 rounded-2xl bg-emerald-500/20 border-2 border-emerald-500 text-emerald-400 flex items-center justify-center shadow-xl">
+                              <MapPin className="h-6 w-6" />
+                            </div>
+                            <span className="text-xs font-bold text-emerald-300 mt-2">Pickup Point</span>
+                            <span className="text-[10px] text-slate-400 font-mono max-w-[120px] truncate text-center" title={selectedRequest.pickupAddress || selectedRequest.cityZone}>
+                              {selectedRequest.pickupAddress || selectedRequest.cityZone}
+                            </span>
+                          </div>
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Bottom Live Metrics */}
+                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 pt-3 border-t border-slate-800 text-xs font-mono">
+                      <div className="bg-slate-900/80 p-2.5 rounded-xl border border-slate-800">
+                        <span className="text-slate-400 text-[10px] uppercase font-sans font-bold block">Vehicle Type</span>
+                        <span className="text-white font-bold">{driver.vehicleType}</span>
+                      </div>
+                      <div className="bg-slate-900/80 p-2.5 rounded-xl border border-slate-800">
+                        <span className="text-slate-400 text-[10px] uppercase font-sans font-bold block">Driver Phone</span>
+                        <span className="text-emerald-400 font-bold">{driver.phone}</span>
+                      </div>
+                      <div className="bg-slate-900/80 p-2.5 rounded-xl border border-slate-800">
+                        <span className="text-slate-400 text-[10px] uppercase font-sans font-bold block">Status</span>
+                        <span className="text-amber-300 font-bold capitalize">{selectedRequest.status.replace(/_/g, ' ')}</span>
+                      </div>
+                      <div className="bg-slate-900/80 p-2.5 rounded-xl border border-slate-800">
+                        <span className="text-slate-400 text-[10px] uppercase font-sans font-bold block">CO₂ Saved</span>
+                        <span className="text-teal-300 font-bold">~{selectedRequest.co2OffsetKg} kg</span>
+                      </div>
+                    </div>
+
+                  </div>
+                );
+              })()}
             </div>
 
           </div>

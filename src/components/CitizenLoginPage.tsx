@@ -430,8 +430,10 @@ export const CitizenLoginPage: React.FC<CitizenLoginPageProps> = ({
                 <div className="flex items-center justify-between text-[11px] sm:text-xs pt-0.5">
                   <label className="flex items-center gap-1.5 cursor-pointer select-none">
                     <input
+                      key="admin-remember"
                       type="checkbox"
-                      defaultChecked
+                      checked={!!rememberMe}
+                      onChange={(e) => setRememberMe(e.target.checked)}
                       className="w-3.5 h-3.5 rounded text-[#0284c7] border-slate-300 focus:ring-[#0284c7] cursor-pointer"
                     />
                     <span className="text-slate-600 font-medium">Remember admin</span>
@@ -571,8 +573,10 @@ export const CitizenLoginPage: React.FC<CitizenLoginPageProps> = ({
                 <div className="flex items-center justify-between text-[11px] sm:text-xs pt-0.5">
                   <label className="flex items-center gap-1.5 cursor-pointer select-none">
                     <input
+                      key="driver-remember"
                       type="checkbox"
-                      defaultChecked
+                      checked={!!rememberMe}
+                      onChange={(e) => setRememberMe(e.target.checked)}
                       className="w-3.5 h-3.5 rounded text-[#0284c7] border-slate-300 focus:ring-[#0284c7] cursor-pointer"
                     />
                     <span className="text-slate-600 font-medium">Keep driver logged in</span>
@@ -719,8 +723,9 @@ export const CitizenLoginPage: React.FC<CitizenLoginPageProps> = ({
               <div className="flex items-center justify-between text-[11px] sm:text-xs pt-0.5">
                 <label className="flex items-center gap-1.5 cursor-pointer select-none">
                   <input
+                    key="citizen-remember"
                     type="checkbox"
-                    checked={rememberMe}
+                    checked={!!rememberMe}
                     onChange={(e) => setRememberMe(e.target.checked)}
                     className="w-3.5 h-3.5 rounded text-[#0284c7] border-slate-300 focus:ring-[#0284c7] cursor-pointer"
                   />
