@@ -114,7 +114,7 @@ export const RECYCLED_REWARDS: RecycledRewardItem[] = [
     wasteDivertedKg: 15,
     description: 'Travel clean without traffic emissions. Recharges your MahaMetro transit card with 10 free rides across Purple & Aqua lines.',
     keyFeatures: ['Valid on PCMC-Swargate & Vanaz-Ramwadi lines', 'Instant digital coupon PIN', 'Transfers seamlessly to Metro app'],
-    imageUrl: 'https://images.unsplash.com/photo-1517649763962-0c623266ddc0?auto=format&fit=crop&w=600&q=80',
+    imageUrl: '/images/pune_metro_reward.jpg',
   },
 ];
 
@@ -329,6 +329,11 @@ export const RewardsSection: React.FC<RewardsSectionProps> = ({
                       alt={reward.title}
                       className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
                       loading="lazy"
+                      onError={(e) => {
+                        // Fallback gracefully to high-res green transit/recycling placeholder
+                        (e.target as HTMLImageElement).src =
+                          'https://images.unsplash.com/photo-1544620347-c4fd4a3d5957?auto=format&fit=crop&w=600&q=80';
+                      }}
                     />
                     
                     {/* Badge */}
