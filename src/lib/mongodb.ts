@@ -10,9 +10,8 @@ try {
 
 const MONGODB_URI = process.env.MONGODB_URI;
 
-// Direct replica set fallback URI in case SRV lookup is blocked by ISP or firewall
-const MONGODB_FALLBACK_URI =
-  'mongodb://shindedhananjay201906_db_user:gpEIFHAz3h9XVZRe@ac-ncubuan-shard-00-00.8nxoklv.mongodb.net:27017,ac-ncubuan-shard-00-01.8nxoklv.mongodb.net:27017,ac-ncubuan-shard-00-02.8nxoklv.mongodb.net:27017/fitfest_db?ssl=true&authSource=admin&retryWrites=true&w=majority';
+// Direct replica set fallback URI — loaded from env, never hardcoded
+const MONGODB_FALLBACK_URI = process.env.MONGODB_FALLBACK_URI || '';
 
 // Resolves mongodb+srv:// to direct node hosts via public DNS if standard resolution fails
 async function resolveMongoUri(rawUri: string): Promise<string> {
@@ -62,6 +61,11 @@ export async function connectToDatabase(): Promise<typeof mongoose | null> {
     return cached.conn;
   }
 
+  if (!MONGODB_URI && !MONGODB_FALLBACK_URI) {
+    console.warn('⚠️ No MongoDB URI configured. Set MONGODB_URI or MONGODB_FALLBACK_URI in .env.local');
+    return null;
+  }
+
   if (!cached.promise) {
     const opts = {
       bufferCommands: false,
@@ -82,7 +86,7 @@ export async function connectToDatabase(): Promise<typeof mongoose | null> {
       }
 
       // 2. Try direct static fallback
-      if (resolvedUri !== MONGODB_FALLBACK_URI) {
+      if (MONGODB_FALLBACK_URI && resolvedUri !== MONGODB_FALLBACK_URI) {
         try {
           const instance = await mongoose.connect(MONGODB_FALLBACK_URI, opts);
           console.log('✅ Connected to MongoDB Atlas via direct replica set.');
