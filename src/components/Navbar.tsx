@@ -201,25 +201,7 @@ export const Navbar: React.FC<NavbarProps> = ({
                 </>
               )}
 
-              {/* Dedicated /driver link */}
-              <Link
-                href="/driver"
-                className="hidden lg:inline-flex items-center gap-1.5 px-2.5 sm:px-3 py-1.5 rounded-lg text-xs font-semibold bg-emerald-50 hover:bg-emerald-100/80 text-emerald-800 border border-emerald-200/80 transition-all shadow-2xs cursor-pointer shrink-0"
-                title="Delivery Partner Portal at /driver"
-              >
-                <Truck className="h-3.5 w-3.5 text-emerald-600" />
-                <span>Driver</span>
-              </Link>
 
-              {/* Dedicated /admin link */}
-              <Link
-                href="/admin"
-                className="hidden lg:inline-flex items-center gap-1.5 px-2.5 sm:px-3 py-1.5 rounded-lg text-xs font-semibold bg-slate-100 hover:bg-slate-200/90 text-slate-700 border border-slate-200/80 transition-all shadow-2xs cursor-pointer shrink-0"
-                title="Open Admin Operations Console at /admin"
-              >
-                <ShieldCheck className="h-3.5 w-3.5 text-indigo-600" />
-                <span>Admin</span>
-              </Link>
 
               {/* Citizen Auth Status */}
               {currentUser ? (
@@ -375,17 +357,7 @@ export const Navbar: React.FC<NavbarProps> = ({
                   <span className="text-[10px] uppercase font-bold bg-emerald-200/80 px-1.5 py-0.5 rounded text-emerald-800">New</span>
                 </button>
 
-                <Link
-                  href="/admin"
-                  className="w-full flex items-center justify-between px-4 py-2.5 rounded-xl text-sm font-semibold text-slate-800 bg-slate-100 border border-slate-200 hover:bg-slate-200 transition-colors"
-                  onClick={() => setMobileMenuOpen(false)}
-                >
-                  <div className="flex items-center gap-3">
-                    <ShieldCheck className="h-4 w-4 text-indigo-600" />
-                    <span>Admin Operations Console (/admin)</span>
-                  </div>
-                  <ExternalLink className="h-3.5 w-3.5 text-slate-400" />
-                </Link>
+
               </div>
             </div>
           </div>
