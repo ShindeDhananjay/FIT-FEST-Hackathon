@@ -197,7 +197,7 @@ export const BookingWizard: React.FC<BookingWizardProps> = ({
   };
 
   return (
-    <div className="w-full min-h-[calc(100vh-4.5rem)] bg-gradient-to-b from-[#f8faf9] to-[#edf3ef] py-6 sm:py-10 px-4 sm:px-6 lg:px-8">
+    <div className="w-full min-h-[calc(100vh-4.5rem)] bg-gradient-to-b from-[#f8faf9] to-[#edf3ef] py-4 sm:py-6 lg:py-10 px-3 sm:px-4 lg:px-8">
       <div className="max-w-7xl mx-auto">
         
         {/* Top Header Row spanning full width */}
@@ -209,7 +209,7 @@ export const BookingWizard: React.FC<BookingWizardProps> = ({
               </span>
               <span className="text-xs text-gray-500 font-medium">· Doorstep Collection Free ₹0</span>
             </div>
-            <h1 className="text-3xl sm:text-4xl font-black text-gray-900 tracking-tight">
+            <h1 className="text-2xl sm:text-3xl lg:text-4xl font-black text-gray-900 tracking-tight">
               Schedule Your Waste Pickup
             </h1>
             <p className="text-gray-500 text-sm mt-1">
@@ -236,7 +236,7 @@ export const BookingWizard: React.FC<BookingWizardProps> = ({
 
             {/* Stepper Header */}
             <div className="bg-white p-4 rounded-2xl border border-gray-100 shadow-sm">
-              <div className="grid grid-cols-4 gap-2">
+              <div className="grid grid-cols-4 gap-1 sm:gap-2">
                 {[
                   { num: 1, title: 'Waste Type', desc: 'Select items' },
                   { num: 2, title: 'Location', desc: 'Pune address' },
@@ -252,7 +252,7 @@ export const BookingWizard: React.FC<BookingWizardProps> = ({
                       type="button"
                       onClick={() => s.num <= step && setStep(s.num as 1 | 2 | 3 | 4)}
                       disabled={s.num > step}
-                      className={`flex items-center gap-2.5 p-2 rounded-xl text-left transition-all ${
+                      className={`flex items-center gap-1.5 sm:gap-2.5 p-1.5 sm:p-2 rounded-xl text-left transition-all ${
                         isCurrent
                           ? 'bg-emerald-50 text-emerald-900 font-bold'
                           : isDone

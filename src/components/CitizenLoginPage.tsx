@@ -243,7 +243,7 @@ export const CitizenLoginPage: React.FC<CitizenLoginPageProps> = ({
   };
 
   return (
-    <div className="h-screen max-h-screen w-full flex flex-col lg:flex-row bg-white overflow-hidden select-none font-sans antialiased">
+    <div className="min-h-screen w-full flex flex-col lg:flex-row bg-white overflow-x-hidden select-none font-sans antialiased">
       
       {/* LEFT COLUMN: HERO ILLUSTRATION (Desktop) */}
       <div className="hidden lg:flex lg:w-1/2 xl:w-[52%] h-full max-h-screen border-r border-slate-100 overflow-hidden">
@@ -255,7 +255,7 @@ export const CitizenLoginPage: React.FC<CitizenLoginPageProps> = ({
       </div>
 
       {/* RIGHT COLUMN: LOGIN FORM AREA */}
-      <div className="w-full lg:w-1/2 xl:w-[48%] h-full max-h-screen flex flex-col justify-between p-4 sm:p-6 lg:p-8 xl:p-10 overflow-y-auto lg:overflow-hidden">
+      <div className="w-full lg:w-1/2 xl:w-[48%] min-h-screen lg:h-screen lg:max-h-screen flex flex-col justify-between p-4 sm:p-6 lg:p-8 xl:p-10 overflow-y-auto">
         
         {/* Top Navbar Row */}
         <div className="flex items-center justify-between gap-3 w-full pb-2 sm:pb-3 shrink-0">

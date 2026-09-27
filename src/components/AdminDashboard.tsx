@@ -189,7 +189,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
   };
 
   return (
-    <div className="max-w-7xl mx-auto py-8 px-4 sm:px-6">
+    <div className="max-w-7xl mx-auto py-4 sm:py-8 px-3 sm:px-4 lg:px-6">
       
       {/* Title & Ops Status Bar */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-8">
@@ -220,7 +220,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
       </div>
 
       {/* KPI Statistic Cards */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4 mb-6 sm:mb-8">
         {[
           {
             label: 'Active Pickups',
@@ -255,21 +255,21 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
             bg: 'bg-teal-50',
           },
         ].map((stat) => (
-          <div key={stat.label} className="p-5 rounded-2xl bg-white border border-gray-100 shadow-xs space-y-2">
+          <div key={stat.label} className="p-3 sm:p-5 rounded-2xl bg-white border border-gray-100 shadow-xs space-y-1 sm:space-y-2">
             <div className="flex items-center justify-between">
               <span className="text-xs font-bold text-gray-500 uppercase tracking-wider">{stat.label}</span>
               <div className={`w-8 h-8 rounded-xl ${stat.bg} flex items-center justify-center ${stat.color}`}>
                 <stat.icon className="h-4 w-4" />
               </div>
             </div>
-            <p className="text-2xl font-black text-gray-900 tracking-tight">{stat.value}</p>
+            <p className="text-xl sm:text-2xl font-black text-gray-900 tracking-tight">{stat.value}</p>
             <p className="text-[11px] text-gray-400 font-medium">{stat.sub}</p>
           </div>
         ))}
       </div>
 
       {/* Filter and Search Controls */}
-      <div className="p-4 rounded-2xl bg-white border border-gray-100 shadow-xs mb-6 space-y-3">
+      <div className="p-3 sm:p-4 rounded-2xl bg-white border border-gray-100 shadow-xs mb-4 sm:mb-6 space-y-3">
         <div className="flex flex-col md:flex-row gap-3">
           <div className="relative flex-1">
             <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
@@ -282,7 +282,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
             />
           </div>
 
-          <div className="grid grid-cols-3 gap-2">
+          <div className="grid grid-cols-1 xs:grid-cols-3 sm:grid-cols-3 gap-2">
             <select
               value={selectedCategoryFilter}
               onChange={(e) => setSelectedCategoryFilter(e.target.value)}
@@ -355,8 +355,8 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
             <p className="text-xs text-gray-400 mt-1">Try adjusting your search criteria</p>
           </div>
         ) : (
-          <div className="overflow-x-auto">
-            <table className="w-full text-xs sm:text-sm">
+          <div className="overflow-x-auto -mx-0">
+            <table className="w-full text-xs min-w-[640px]">
               <thead>
                 <tr className="bg-gray-50/80 border-b border-gray-100 text-left">
                   <th className="px-5 py-3.5 text-[11px] font-bold text-gray-400 uppercase tracking-wider">Tracking / Citizen</th>
@@ -540,7 +540,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
           onClick={() => setEditingRequest(null)}
         >
           <div
-            className="bg-white rounded-3xl shadow-2xl max-w-xl w-full p-6 sm:p-7 space-y-5 my-8 max-h-[90vh] overflow-y-auto"
+            className="bg-white rounded-2xl sm:rounded-3xl shadow-2xl max-w-xl w-full p-4 sm:p-6 lg:p-7 space-y-4 sm:space-y-5 my-4 sm:my-8 max-h-[92vh] overflow-y-auto"
             onClick={(e) => e.stopPropagation()}
           >
             <div className="flex items-center justify-between pb-3 border-b border-gray-100">

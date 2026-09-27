@@ -119,10 +119,10 @@ export const LandingPage: React.FC<LandingPageProps> = ({
               materials and build a cleaner community — all from one simple platform.
             </motion.p>
 
-            <motion.div variants={stagger.item} className="mt-8 flex flex-wrap items-center justify-center gap-3.5">
+            <motion.div variants={stagger.item} className="mt-8 flex flex-wrap items-center justify-center gap-2 sm:gap-3.5">
               <button
                 onClick={() => onStartPickup()}
-                className="inline-flex items-center gap-2 px-7 py-3.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-semibold text-sm sm:text-base shadow-lg shadow-emerald-600/25 hover:shadow-emerald-600/35 transition-all active:scale-[0.98] cursor-pointer"
+                className="inline-flex items-center gap-2 px-5 sm:px-7 py-3 sm:py-3.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-semibold text-sm sm:text-base shadow-lg shadow-emerald-600/25 hover:shadow-emerald-600/35 transition-all active:scale-[0.98] cursor-pointer"
               >
                 Request a Pickup
                 <ArrowRight className="h-4 w-4" />
@@ -191,7 +191,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({
             </motion.div>
 
             {/* Trust badges */}
-            <motion.div variants={stagger.item} className="mt-10 flex flex-wrap items-center justify-center gap-6 sm:gap-8 text-sm text-gray-500">
+            <motion.div variants={stagger.item} className="mt-10 flex flex-wrap items-center justify-center gap-4 sm:gap-6 text-xs sm:text-sm text-gray-500">
               <div className="flex items-center gap-2">
                 <Shield className="h-4 w-4 text-emerald-600" />
                 <span className="font-medium">Verified recycling</span>

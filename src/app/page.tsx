@@ -411,7 +411,7 @@ export default function Home() {
       )}
 
       {/* Main Content */}
-      <main className={isAuthGatedView ? "h-screen max-h-screen w-full overflow-hidden" : "flex-1 pb-20 md:pb-0"}>
+      <main className={isAuthGatedView ? "w-full overflow-x-hidden" : "flex-1 pb-20 md:pb-0 overflow-x-hidden"}>
         {activeTab === 'home' && (
           <LandingPage
             onStartPickup={handleStartPickup}

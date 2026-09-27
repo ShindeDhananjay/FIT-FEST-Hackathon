@@ -164,7 +164,7 @@ export const LiveTracker: React.FC<LiveTrackerProps> = ({
   }
 
   return (
-    <div className="w-full min-h-[calc(100vh-4.5rem)] bg-gradient-to-b from-[#f8faf9] to-[#edf3ef] py-6 sm:py-10 px-4 sm:px-6 lg:px-8">
+    <div className="w-full min-h-[calc(100vh-4.5rem)] bg-gradient-to-b from-[#f8faf9] to-[#edf3ef] py-4 sm:py-6 lg:py-10 px-3 sm:px-4 lg:px-8">
       <div className="max-w-7xl mx-auto">
         
         {/* Full-width Top Header */}
@@ -176,7 +176,7 @@ export const LiveTracker: React.FC<LiveTrackerProps> = ({
                 Live Doorstep Telemetry
               </span>
             </div>
-            <h1 className="text-3xl sm:text-4xl font-black text-gray-900 tracking-tight">
+            <h1 className="text-2xl sm:text-3xl lg:text-4xl font-black text-gray-900 tracking-tight">
               Live Pickup Tracker
             </h1>
             <p className="text-gray-500 text-sm mt-1">
