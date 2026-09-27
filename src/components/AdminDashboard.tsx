@@ -4,19 +4,24 @@ import React, { useState } from 'react';
 import {
   ShieldCheck,
   Search,
-  Filter,
   Truck,
   CheckCircle2,
   Clock,
-  Layers,
   MapPin,
   TrendingUp,
   AlertCircle,
   UserCheck,
   ChevronDown,
-  Navigation,
-  ArrowUpRight,
   RefreshCw,
+  ArrowUpRight,
+  Package,
+  Filter,
+  Download,
+  Check,
+  X,
+  Phone,
+  Radio,
+  FileSpreadsheet,
 } from 'lucide-react';
 import { WastePickupRequest, CollectorDriver, RequestStatus, WasteCategory } from '@/types/waste';
 import { WASTE_CATEGORIES, PUNE_ZONES } from '@/constants/wasteCategories';
@@ -28,6 +33,22 @@ interface AdminDashboardProps {
   onSelectTrackRequest: (requestId: string) => void;
 }
 
+const STATUSES: RequestStatus[] = [
+  'submitted',
+  'assigned',
+  'on_the_way',
+  'completed',
+  'cancelled',
+];
+
+const STATUS_BADGE: Record<RequestStatus, { bg: string; text: string; border: string }> = {
+  submitted: { bg: 'bg-slate-100', text: 'text-slate-700', border: 'border-slate-200' },
+  assigned: { bg: 'bg-indigo-50', text: 'text-indigo-700', border: 'border-indigo-200' },
+  on_the_way: { bg: 'bg-cyan-50', text: 'text-cyan-700', border: 'border-cyan-200' },
+  completed: { bg: 'bg-emerald-50', text: 'text-emerald-700', border: 'border-emerald-200' },
+  cancelled: { bg: 'bg-rose-50', text: 'text-rose-700', border: 'border-rose-200' },
+};
+
 export const AdminDashboard: React.FC<AdminDashboardProps> = ({
   requests,
   drivers,
@@ -38,235 +59,147 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
   const [selectedCategoryFilter, setSelectedCategoryFilter] = useState<string>('all');
   const [selectedStatusFilter, setSelectedStatusFilter] = useState<string>('all');
   const [selectedZoneFilter, setSelectedZoneFilter] = useState<string>('all');
-  const [activeTab, setActiveTab] = useState<'table' | 'map'>('table');
-
-  // Assign driver modal state
   const [assigningRequestId, setAssigningRequestId] = useState<string | null>(null);
 
-  // Filter requests
   const filteredRequests = requests.filter((req) => {
     const matchesSearch =
       req.trackingCode.toLowerCase().includes(searchQuery.toLowerCase()) ||
       req.contactName.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      req.pickupAddress.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      req.itemDescription.toLowerCase().includes(searchQuery.toLowerCase());
-
-    const matchesCategory =
-      selectedCategoryFilter === 'all' || req.category === selectedCategoryFilter;
+      req.category.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      (req.pickupAddress && req.pickupAddress.toLowerCase().includes(searchQuery.toLowerCase()));
+    const matchesCategory = selectedCategoryFilter === 'all' || req.category === selectedCategoryFilter;
     const matchesStatus = selectedStatusFilter === 'all' || req.status === selectedStatusFilter;
     const matchesZone = selectedZoneFilter === 'all' || req.cityZone === selectedZoneFilter;
-
     return matchesSearch && matchesCategory && matchesStatus && matchesZone;
   });
 
-  // Calculate statistics
-  const totalWeight = requests.reduce((acc, r) => acc + r.estimatedWeightKg, 0);
-  const totalCo2 = requests.reduce((acc, r) => acc + r.co2OffsetKg, 0);
-  const pendingCount = requests.filter((r) => r.status === 'submitted').length;
-  const inTransitCount = requests.filter((r) => r.status === 'on_the_way' || r.status === 'assigned').length;
+  // Quick Stats Calculation
+  const totalActive = requests.filter((r) => r.status !== 'completed' && r.status !== 'cancelled').length;
   const completedCount = requests.filter((r) => r.status === 'completed').length;
+  const pendingAssignment = requests.filter((r) => r.status === 'submitted').length;
+  const totalKg = requests.reduce((acc, r) => acc + r.estimatedWeightKg, 0);
+  const totalCo2 = requests.reduce((acc, r) => acc + r.co2OffsetKg, 0);
+
+  const exportCSV = () => {
+    const headers = 'TrackingCode,Category,WeightKg,Zone,Address,Contact,Phone,Status,EcoPoints,CreatedAt\n';
+    const rows = filteredRequests
+      .map(
+        (r) =>
+          `"${r.trackingCode}","${r.category}",${r.estimatedWeightKg},"${r.cityZone}","${r.pickupAddress}","${r.contactName}","${r.contactPhone}","${r.status}",${r.ecoPointsEarned},"${r.createdAt}"`
+      )
+      .join('\n');
+    const blob = new Blob([headers + rows], { type: 'text/csv' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `ecoloop-requests-${Date.now()}.csv`;
+    a.click();
+  };
 
   return (
-    <div className="max-w-7xl mx-auto py-6 px-4 sm:px-6 lg:px-8 space-y-6">
+    <div className="max-w-7xl mx-auto py-8 px-4 sm:px-6">
       
-      {/* Top Banner */}
-      <div className="p-6 rounded-3xl bg-slate-900 border border-slate-800 flex flex-col md:flex-row md:items-center justify-between gap-4">
+      {/* Title & Ops Status Bar */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-8">
         <div>
-          <div className="flex items-center gap-2">
-            <span className="h-8 w-8 rounded-xl bg-indigo-500/20 text-indigo-400 flex items-center justify-center">
-              <ShieldCheck className="h-5 w-5" />
+          <div className="flex items-center gap-2 mb-1">
+            <span className="w-2.5 h-2.5 rounded-full bg-indigo-500 animate-pulse" />
+            <span className="text-[11px] font-bold uppercase tracking-wider text-indigo-700 bg-indigo-50 px-2 py-0.5 rounded-full border border-indigo-200">
+              Pune Municipal Waste Logistics
             </span>
-            <h1 className="text-xl sm:text-2xl font-extrabold text-white tracking-tight">
-              Administrative Collection & Dispatch Console
-            </h1>
           </div>
-          <p className="text-xs text-slate-400 mt-1">
-            Real-time municipal request management, fleet routing, and recycling verification.
+          <h1 className="text-2xl sm:text-3xl font-black text-gray-900 tracking-tight">
+            Municipal Operations Console
+          </h1>
+          <p className="mt-1 text-gray-500 text-xs sm:text-sm">
+            Live dispatcher hub: assign electric collection vehicles, advance pickup statuses, and track diversion KPIs.
           </p>
         </div>
 
-        {/* View toggle (Table vs Interactive Fleet Map) */}
-        <div className="flex items-center gap-2 bg-slate-950 p-1 rounded-2xl border border-slate-800">
+        <div className="flex items-center gap-2.5 self-start sm:self-center">
           <button
-            onClick={() => setActiveTab('table')}
-            className={`px-4 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer ${
-              activeTab === 'table'
-                ? 'bg-indigo-500 text-white shadow-md shadow-indigo-500/30'
-                : 'text-slate-400 hover:text-white'
-            }`}
+            onClick={exportCSV}
+            className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-white hover:bg-gray-50 text-gray-700 border border-gray-200 text-xs font-bold transition-all shadow-2xs cursor-pointer"
           >
-            Request Queue ({requests.length})
-          </button>
-          <button
-            onClick={() => setActiveTab('map')}
-            className={`px-4 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer ${
-              activeTab === 'map'
-                ? 'bg-indigo-500 text-white shadow-md shadow-indigo-500/30'
-                : 'text-slate-400 hover:text-white'
-            }`}
-          >
-            Live Fleet Map
+            <FileSpreadsheet className="h-3.5 w-3.5 text-emerald-600" />
+            <span>Export CSV</span>
           </button>
         </div>
       </div>
 
-      {/* High-level KPIs */}
-      <div className="grid grid-cols-2 lg:grid-cols-5 gap-3">
-        <div className="p-4 rounded-2xl bg-slate-900 border border-slate-800">
-          <span className="text-[11px] text-slate-400 font-semibold block uppercase">Total Requests</span>
-          <span className="text-2xl font-extrabold text-white mt-1 block">{requests.length}</span>
-          <span className="text-[10px] text-slate-500 mt-0.5 block">Across Pune zones</span>
-        </div>
-
-        <div className="p-4 rounded-2xl bg-slate-900 border border-amber-500/20">
-          <span className="text-[11px] text-amber-400 font-semibold block uppercase">Awaiting Dispatch</span>
-          <span className="text-2xl font-extrabold text-amber-400 mt-1 block">{pendingCount}</span>
-          <span className="text-[10px] text-slate-500 mt-0.5 block">Ready for driver</span>
-        </div>
-
-        <div className="p-4 rounded-2xl bg-slate-900 border border-cyan-500/20">
-          <span className="text-[11px] text-cyan-400 font-semibold block uppercase">In Transit / Assigned</span>
-          <span className="text-2xl font-extrabold text-cyan-400 mt-1 block">{inTransitCount}</span>
-          <span className="text-[10px] text-slate-500 mt-0.5 block">Active on roads</span>
-        </div>
-
-        <div className="p-4 rounded-2xl bg-slate-900 border border-emerald-500/20">
-          <span className="text-[11px] text-emerald-400 font-semibold block uppercase">Completed / Recycled</span>
-          <span className="text-2xl font-extrabold text-emerald-400 mt-1 block">{completedCount}</span>
-          <span className="text-[10px] text-slate-500 mt-0.5 block">100% diverted</span>
-        </div>
-
-        <div className="p-4 rounded-2xl bg-slate-900 border border-slate-800 col-span-2 lg:col-span-1">
-          <span className="text-[11px] text-slate-400 font-semibold block uppercase">Total Volume</span>
-          <span className="text-2xl font-extrabold text-white mt-1 block">{totalWeight.toFixed(1)} kg</span>
-          <span className="text-[10px] text-emerald-400 mt-0.5 block">~{totalCo2.toFixed(1)} kg CO₂ Saved</span>
-        </div>
+      {/* KPI Statistic Cards */}
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
+        {[
+          {
+            label: 'Active Pickups',
+            value: totalActive,
+            sub: 'Pending or In-Transit',
+            icon: Package,
+            color: 'text-indigo-600',
+            bg: 'bg-indigo-50',
+          },
+          {
+            label: 'Pending Assignment',
+            value: pendingAssignment,
+            sub: 'Require driver allocation',
+            icon: AlertCircle,
+            color: 'text-amber-600',
+            bg: 'bg-amber-50',
+          },
+          {
+            label: 'Total Diverted',
+            value: `${totalKg.toFixed(0)} kg`,
+            sub: 'Recycled waste tonnage',
+            icon: TrendingUp,
+            color: 'text-emerald-600',
+            bg: 'bg-emerald-50',
+          },
+          {
+            label: 'CO₂ Emissions Offset',
+            value: `${totalCo2.toFixed(1)} kg`,
+            sub: 'Carbon credit equivalency',
+            icon: CheckCircle2,
+            color: 'text-teal-600',
+            bg: 'bg-teal-50',
+          },
+        ].map((stat) => (
+          <div key={stat.label} className="p-5 rounded-2xl bg-white border border-gray-100 shadow-xs space-y-2">
+            <div className="flex items-center justify-between">
+              <span className="text-xs font-bold text-gray-500 uppercase tracking-wider">{stat.label}</span>
+              <div className={`w-8 h-8 rounded-xl ${stat.bg} flex items-center justify-center ${stat.color}`}>
+                <stat.icon className="h-4 w-4" />
+              </div>
+            </div>
+            <p className="text-2xl font-black text-gray-900 tracking-tight">{stat.value}</p>
+            <p className="text-[11px] text-gray-400 font-medium">{stat.sub}</p>
+          </div>
+        ))}
       </div>
 
-      {activeTab === 'map' ? (
-        /* LIVE FLEET DISPATCH MAP VIEW */
-        <div className="p-6 rounded-3xl bg-slate-900 border border-slate-800 space-y-4">
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-            <div>
-              <h3 className="text-sm font-bold text-white flex items-center gap-2">
-                <Navigation className="h-4 w-4 text-emerald-400" />
-                Live Fleet Tracking & Pickup Heatmap (Pune / Flora Tech Sector)
-              </h3>
-              <p className="text-xs text-slate-400 mt-0.5">
-                Simulated real-time vehicle dispatch telemetry with active cluster density.
-              </p>
-            </div>
-            <div className="flex items-center gap-2 text-xs">
-              <span className="flex items-center gap-1.5 text-slate-300">
-                <span className="h-2.5 w-2.5 rounded-full bg-emerald-400" /> Truck Active
-              </span>
-              <span className="flex items-center gap-1.5 text-slate-300 ml-2">
-                <span className="h-2.5 w-2.5 rounded-full bg-cyan-400 animate-ping" /> Pending Pickup
-              </span>
-            </div>
+      {/* Filter and Search Controls */}
+      <div className="p-4 rounded-2xl bg-white border border-gray-100 shadow-xs mb-6 space-y-3">
+        <div className="flex flex-col md:flex-row gap-3">
+          <div className="relative flex-1">
+            <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
+            <input
+              type="text"
+              placeholder="Search by code (e.g. ECO-1234), citizen name, address..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="w-full pl-10 pr-4 py-2.5 rounded-xl bg-gray-50 border border-gray-200 text-xs sm:text-sm text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:bg-white transition-all"
+            />
           </div>
 
-          {/* Interactive GIS Grid Simulation */}
-          <div className="h-[420px] rounded-2xl bg-slate-950 border border-slate-800 relative overflow-hidden flex flex-col justify-between p-6">
-            <div className="absolute inset-0 bg-[radial-gradient(#334155_1px,transparent_1px)] [background-size:24px_24px] opacity-25" />
-
-            {/* Simulated Road Lines */}
-            <svg className="absolute inset-0 w-full h-full pointer-events-none stroke-slate-800 stroke-[2] fill-none">
-              <path d="M 50 150 Q 250 80 500 200 T 900 180" />
-              <path d="M 200 400 Q 400 320 650 380 T 1100 250" />
-              <path d="M 350 50 L 450 400" strokeDasharray="6 6" className="stroke-emerald-500/40" />
-            </svg>
-
-            {/* Depot Hub Pin */}
-            <div className="absolute top-12 left-16 z-10 flex items-center gap-2 bg-slate-900/90 border border-emerald-500/40 px-3 py-1.5 rounded-xl shadow-lg">
-              <div className="h-3 w-3 rounded-full bg-emerald-400 animate-pulse" />
-              <div>
-                <p className="text-[11px] font-bold text-white">Central Eco Hub (Flora Campus)</p>
-                <p className="text-[9px] text-slate-400">Depot #01 • 3 Trucks Online</p>
-              </div>
-            </div>
-
-            {/* Truck 101 Marker */}
-            <div className="absolute top-36 left-1/3 z-10 animate-pulse">
-              <div className="flex items-center gap-1.5 bg-emerald-950/90 border border-emerald-500 px-2.5 py-1 rounded-lg text-xs text-white shadow-xl cursor-pointer">
-                <Truck className="h-3.5 w-3.5 text-emerald-400" />
-                <span className="font-bold text-[11px]">EV Van 4029 (Patil)</span>
-              </div>
-              <div className="w-1.5 h-1.5 bg-emerald-400 rounded-full mx-auto mt-0.5" />
-            </div>
-
-            {/* Truck 103 Marker */}
-            <div className="absolute bottom-28 right-1/4 z-10">
-              <div className="flex items-center gap-1.5 bg-indigo-950/90 border border-indigo-500 px-2.5 py-1 rounded-lg text-xs text-white shadow-xl cursor-pointer">
-                <Truck className="h-3.5 w-3.5 text-indigo-400" />
-                <span className="font-bold text-[11px]">E-Waste Unit 5501 (Pooja)</span>
-              </div>
-            </div>
-
-            {/* Pins for requests */}
-            {filteredRequests.map((req, index) => {
-              const offsets = [
-                { top: '35%', left: '25%' },
-                { top: '55%', left: '45%' },
-                { top: '25%', left: '65%' },
-                { top: '70%', left: '30%' },
-                { top: '40%', left: '78%' },
-              ];
-              const pos = offsets[index % offsets.length];
-
-              return (
-                <div
-                  key={req.id}
-                  style={pos}
-                  onClick={() => onSelectTrackRequest(req.id)}
-                  title={`Click to track ${req.trackingCode}`}
-                  className="absolute z-10 cursor-pointer group"
-                >
-                  <div className="h-6 w-6 rounded-full bg-slate-900 border-2 border-cyan-400 flex items-center justify-center text-cyan-400 group-hover:scale-125 transition-transform shadow-lg shadow-cyan-500/30">
-                    <MapPin className="h-3.5 w-3.5" />
-                  </div>
-                  <div className="hidden group-hover:block absolute left-8 top-0 bg-slate-900 border border-slate-700 p-2 rounded-xl w-48 text-[11px] shadow-2xl z-20">
-                    <p className="font-bold text-white">{req.trackingCode} • {req.category}</p>
-                    <p className="text-slate-400 mt-0.5">{req.pickupAddress.slice(0, 35)}...</p>
-                    <p className="text-cyan-400 font-semibold mt-1">Status: {req.status}</p>
-                  </div>
-                </div>
-              );
-            })}
-
-            {/* Bottom Map Legend */}
-            <div className="relative z-10 flex items-center justify-between text-[11px] text-slate-400 bg-slate-900/80 px-4 py-2 rounded-xl border border-slate-800">
-              <span>Flora Tech Main Campus GIS Server • Coordinates: 18.3512° N, 73.8567° E</span>
-              <span>Click any pin to inspect real-time dispatch details</span>
-            </div>
-          </div>
-        </div>
-      ) : (
-        /* TABLE VIEW (Search, Filter, Assign, Manage) */
-        <div className="p-6 rounded-3xl bg-slate-900 border border-slate-800 space-y-4">
-          
-          {/* Filter Bar */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
-            <div className="relative">
-              <Search className="h-4 w-4 text-slate-500 absolute left-3.5 top-3" />
-              <input
-                type="text"
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                placeholder="Search tracking #, name, zone..."
-                className="w-full pl-10 pr-4 py-2 rounded-xl bg-slate-950 border border-slate-800 text-white placeholder-slate-500 text-xs focus:outline-none focus:border-indigo-500"
-              />
-            </div>
-
+          <div className="grid grid-cols-3 gap-2">
             <select
               value={selectedCategoryFilter}
               onChange={(e) => setSelectedCategoryFilter(e.target.value)}
-              className="px-3 py-2 rounded-xl bg-slate-950 border border-slate-800 text-white text-xs focus:outline-none focus:border-indigo-500"
+              className="px-3 py-2 rounded-xl bg-gray-50 border border-gray-200 text-xs font-semibold text-gray-700 focus:outline-none focus:ring-2 focus:ring-indigo-500 cursor-pointer"
             >
-              <option value="all">All Waste Categories</option>
-              {Object.keys(WASTE_CATEGORIES).map((key) => (
-                <option key={key} value={key}>
-                  {WASTE_CATEGORIES[key as WasteCategory].name}
+              <option value="all">All Materials</option>
+              {(Object.keys(WASTE_CATEGORIES) as WasteCategory[]).map((c) => (
+                <option key={c} value={c}>
+                  {WASTE_CATEGORIES[c].name.split('(')[0].trim()}
                 </option>
               ))}
             </select>
@@ -274,204 +207,269 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
             <select
               value={selectedStatusFilter}
               onChange={(e) => setSelectedStatusFilter(e.target.value)}
-              className="px-3 py-2 rounded-xl bg-slate-950 border border-slate-800 text-white text-xs focus:outline-none focus:border-indigo-500"
+              className="px-3 py-2 rounded-xl bg-gray-50 border border-gray-200 text-xs font-semibold text-gray-700 focus:outline-none focus:ring-2 focus:ring-indigo-500 cursor-pointer"
             >
               <option value="all">All Statuses</option>
-              <option value="submitted">Submitted (Pending)</option>
-              <option value="assigned">Assigned</option>
-              <option value="on_the_way">On The Way</option>
-              <option value="completed">Completed</option>
+              {STATUSES.map((s) => (
+                <option key={s} value={s}>
+                  {s.replace(/_/g, ' ').toUpperCase()}
+                </option>
+              ))}
             </select>
 
             <select
               value={selectedZoneFilter}
               onChange={(e) => setSelectedZoneFilter(e.target.value)}
-              className="px-3 py-2 rounded-xl bg-slate-950 border border-slate-800 text-white text-xs focus:outline-none focus:border-indigo-500"
+              className="px-3 py-2 rounded-xl bg-gray-50 border border-gray-200 text-xs font-semibold text-gray-700 focus:outline-none focus:ring-2 focus:ring-indigo-500 cursor-pointer"
             >
-              <option value="all">All Pune Zones</option>
-              {PUNE_ZONES.map((zone) => (
-                <option key={zone} value={zone}>
-                  {zone}
+              <option value="all">All Pune Wards</option>
+              {PUNE_ZONES.map((z) => (
+                <option key={z} value={z}>
+                  {z.split(',')[0]}
                 </option>
               ))}
             </select>
           </div>
+        </div>
 
-          {/* Requests Table */}
-          <div className="overflow-x-auto rounded-2xl border border-slate-800">
-            <table className="w-full text-left text-xs">
-              <thead className="bg-slate-950 text-slate-400 uppercase font-semibold text-[10px] tracking-wider border-b border-slate-800">
-                <tr>
-                  <th className="py-3 px-4">Tracking & Category</th>
-                  <th className="py-3 px-4">Citizen & Location</th>
-                  <th className="py-3 px-4">Weight & Slot</th>
-                  <th className="py-3 px-4">Status</th>
-                  <th className="py-3 px-4">Assigned Collector</th>
-                  <th className="py-3 px-4 text-right">Actions</th>
+        {/* Results Count Bar */}
+        <div className="flex items-center justify-between text-xs text-gray-400 pt-1">
+          <span>
+            Showing <strong className="text-gray-700">{filteredRequests.length}</strong> of{' '}
+            <strong className="text-gray-700">{requests.length}</strong> requests
+          </span>
+          {(searchQuery || selectedCategoryFilter !== 'all' || selectedStatusFilter !== 'all' || selectedZoneFilter !== 'all') && (
+            <button
+              onClick={() => {
+                setSearchQuery('');
+                setSelectedCategoryFilter('all');
+                setSelectedStatusFilter('all');
+                setSelectedZoneFilter('all');
+              }}
+              className="text-indigo-600 font-bold hover:underline cursor-pointer"
+            >
+              Clear filters
+            </button>
+          )}
+        </div>
+      </div>
+
+      {/* Main Requests Table */}
+      <div className="bg-white rounded-2xl border border-gray-100 shadow-xs overflow-hidden mb-8">
+        {filteredRequests.length === 0 ? (
+          <div className="py-20 text-center">
+            <Package className="h-10 w-10 text-gray-200 mx-auto mb-3" />
+            <p className="text-gray-500 font-bold">No matching pickup records found</p>
+            <p className="text-xs text-gray-400 mt-1">Try adjusting your search criteria</p>
+          </div>
+        ) : (
+          <div className="overflow-x-auto">
+            <table className="w-full text-xs sm:text-sm">
+              <thead>
+                <tr className="bg-gray-50/80 border-b border-gray-100 text-left">
+                  <th className="px-5 py-3.5 text-[11px] font-bold text-gray-400 uppercase tracking-wider">Tracking / Citizen</th>
+                  <th className="px-5 py-3.5 text-[11px] font-bold text-gray-400 uppercase tracking-wider">Material Class</th>
+                  <th className="px-5 py-3.5 text-[11px] font-bold text-gray-400 uppercase tracking-wider">Weight & Reward</th>
+                  <th className="px-5 py-3.5 text-[11px] font-bold text-gray-400 uppercase tracking-wider">Ward & Address</th>
+                  <th className="px-5 py-3.5 text-[11px] font-bold text-gray-400 uppercase tracking-wider">Status</th>
+                  <th className="px-5 py-3.5 text-[11px] font-bold text-gray-400 uppercase tracking-wider">Dispatch Action</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-slate-800 bg-slate-900/60">
-                {filteredRequests.length === 0 ? (
-                  <tr>
-                    <td colSpan={6} className="py-8 text-center text-slate-500">
-                      No collection requests match your filters.
-                    </td>
-                  </tr>
-                ) : (
-                  filteredRequests.map((req) => (
-                    <tr key={req.id} className="hover:bg-slate-850/50 transition-colors">
-                      <td className="py-3.5 px-4">
-                        <div className="font-extrabold text-white">{req.trackingCode}</div>
-                        <div className="text-[11px] text-emerald-400 capitalize font-medium flex items-center gap-1 mt-0.5">
-                          <span className="h-1.5 w-1.5 rounded-full bg-emerald-400" />
-                          {req.category}
+              <tbody className="divide-y divide-gray-100">
+                {filteredRequests.map((req) => {
+                  const badge = STATUS_BADGE[req.status] || STATUS_BADGE.submitted;
+                  const isFinished = req.status === 'completed' || req.status === 'cancelled';
+
+                  return (
+                    <tr key={req.id} className="hover:bg-gray-50/60 transition-colors">
+                      {/* Tracking code & Citizen */}
+                      <td className="px-5 py-4">
+                        <div className="flex flex-col">
+                          <span className="font-mono font-black text-gray-900 text-sm">
+                            {req.trackingCode}
+                          </span>
+                          <span className="text-xs text-gray-600 font-semibold">{req.contactName || 'Citizen'}</span>
+                          <span className="text-[10px] text-gray-400">{req.contactPhone || '—'}</span>
                         </div>
                       </td>
 
-                      <td className="py-3.5 px-4 max-w-xs">
-                        <div className="font-semibold text-slate-200">{req.contactName}</div>
-                        <div className="text-[11px] text-slate-400 truncate">{req.pickupAddress}</div>
-                        <div className="text-[10px] text-slate-500">{req.cityZone}</div>
+                      {/* Material */}
+                      <td className="px-5 py-4">
+                        <span className="font-bold text-gray-800 capitalize block">
+                          {req.category}
+                        </span>
+                        <span className="text-[11px] text-gray-400 line-clamp-1">
+                          {req.itemDescription || '—'}
+                        </span>
                       </td>
 
-                      <td className="py-3.5 px-4">
-                        <div className="font-bold text-white">{req.estimatedWeightKg} kg</div>
-                        <div className="text-[11px] text-slate-400">{req.quantityUnits}</div>
-                        <div className="text-[10px] text-slate-500">{req.scheduledSlot.split('(')[0]}</div>
+                      {/* Weight & EcoPoints */}
+                      <td className="px-5 py-4">
+                        <span className="font-extrabold text-gray-900 block">{req.estimatedWeightKg} kg</span>
+                        <span className="text-[10px] font-bold text-emerald-600">+{req.ecoPointsEarned} pts</span>
                       </td>
 
-                      <td className="py-3.5 px-4">
+                      {/* Ward */}
+                      <td className="px-5 py-4">
+                        <span className="font-bold text-gray-800 block">{req.cityZone?.split(',')[0]}</span>
+                        <span className="text-[10px] text-gray-400 line-clamp-1">{req.pickupAddress}</span>
+                      </td>
+
+                      {/* Status Badge */}
+                      <td className="px-5 py-4">
                         <span
-                          className={`px-2.5 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider inline-block border ${
-                            req.status === 'completed'
-                              ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/30'
-                              : req.status === 'on_the_way'
-                              ? 'bg-cyan-500/10 text-cyan-400 border-cyan-500/30'
-                              : req.status === 'assigned'
-                              ? 'bg-amber-500/10 text-amber-400 border-amber-500/30'
-                              : 'bg-slate-800 text-slate-300 border-slate-700'
-                          }`}
+                          className={`inline-flex px-2.5 py-1 rounded-full text-[10px] font-extrabold uppercase tracking-wide border ${badge.bg} ${badge.text} ${badge.border}`}
                         >
                           {req.status.replace(/_/g, ' ')}
                         </span>
                       </td>
 
-                      <td className="py-3.5 px-4">
-                        {req.driver ? (
-                          <div>
-                            <div className="font-semibold text-white">{req.driver.name}</div>
-                            <div className="text-[10px] text-slate-400">{req.driver.vehicleNumber}</div>
-                          </div>
-                        ) : (
-                          <button
-                            onClick={() => setAssigningRequestId(req.id)}
-                            className="px-2.5 py-1 rounded-lg bg-indigo-500/20 hover:bg-indigo-500/30 text-indigo-300 border border-indigo-500/30 font-semibold text-[11px] cursor-pointer"
+                      {/* Actions */}
+                      <td className="px-5 py-4">
+                        <div className="flex items-center gap-2">
+                          {!isFinished ? (
+                            <>
+                              {req.status === 'submitted' && (
+                                <button
+                                  onClick={() => setAssigningRequestId(req.id)}
+                                  className="px-2.5 py-1.5 rounded-lg text-xs font-bold bg-indigo-600 hover:bg-indigo-700 text-white shadow-2xs transition-colors cursor-pointer flex items-center gap-1"
+                                >
+                                  <UserCheck className="h-3 w-3" />
+                                  <span>Assign</span>
+                                </button>
+                              )}
+
+                              {req.status !== 'submitted' && (
+                                <select
+                                  onChange={(e) => {
+                                    if (e.target.value) onRequestStatusChange(req.id, e.target.value as RequestStatus);
+                                  }}
+                                  defaultValue=""
+                                  className="px-2 py-1.5 rounded-lg text-xs font-semibold bg-gray-50 border border-gray-200 text-gray-700 cursor-pointer"
+                                >
+                                  <option value="" disabled>
+                                    Advance Status →
+                                  </option>
+                                  {STATUSES.slice(STATUSES.indexOf(req.status) + 1).map((s) => (
+                                    <option key={s} value={s}>
+                                      {s.replace(/_/g, ' ').toUpperCase()}
+                                    </option>
+                                  ))}
+                                </select>
+                              )}
+                            </>
+                          ) : (
+                            <span className="text-xs text-gray-400 font-medium">Completed</span>
+                          )}
+
+                          <a
+                            href="/"
+                            className="p-1.5 rounded-lg text-gray-400 hover:text-indigo-600 hover:bg-indigo-50 transition-colors"
+                            title="View tracking"
                           >
-                            + Assign Driver
-                          </button>
-                        )}
-                      </td>
-
-                      <td className="py-3.5 px-4 text-right">
-                        <div className="flex items-center justify-end gap-1.5">
-                          {req.status === 'submitted' && (
-                            <button
-                              onClick={() => setAssigningRequestId(req.id)}
-                              className="p-1.5 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white font-medium text-[11px] cursor-pointer"
-                              title="Assign Driver & Route"
-                            >
-                              Dispatch
-                            </button>
-                          )}
-
-                          {req.status === 'assigned' && (
-                            <button
-                              onClick={() => onRequestStatusChange(req.id, 'on_the_way')}
-                              className="px-2 py-1 rounded-lg bg-cyan-600 hover:bg-cyan-500 text-white font-medium text-[11px] cursor-pointer"
-                            >
-                              Start Route
-                            </button>
-                          )}
-
-                          {req.status === 'on_the_way' && (
-                            <button
-                              onClick={() => onRequestStatusChange(req.id, 'completed')}
-                              className="px-2 py-1 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-[11px] cursor-pointer"
-                            >
-                              Verify & Complete
-                            </button>
-                          )}
-
-                          <button
-                            onClick={() => onSelectTrackRequest(req.id)}
-                            className="p-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 cursor-pointer"
-                            title="Open in Tracker"
-                          >
-                            <ArrowUpRight className="h-3.5 w-3.5" />
-                          </button>
+                            <ArrowUpRight className="h-4 w-4" />
+                          </a>
                         </div>
                       </td>
                     </tr>
-                  ))
-                )}
+                  );
+                })}
               </tbody>
             </table>
           </div>
-        </div>
-      )}
+        )}
+      </div>
 
-      {/* DRIVER ASSIGNMENT MODAL */}
+      {/* Driver Assignment Modal */}
       {assigningRequestId && (
-        <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4">
-          <div className="max-w-md w-full rounded-3xl bg-slate-900 border border-slate-800 p-6 space-y-4 shadow-2xl">
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm px-4"
+          onClick={() => setAssigningRequestId(null)}
+        >
+          <div
+            className="bg-white rounded-2xl shadow-2xl max-w-md w-full p-6 space-y-4"
+            onClick={(e) => e.stopPropagation()}
+          >
             <div className="flex items-center justify-between">
-              <h3 className="text-base font-bold text-white flex items-center gap-2">
-                <Truck className="h-5 w-5 text-indigo-400" />
-                Select Driver to Dispatch
-              </h3>
+              <h3 className="text-lg font-black text-gray-900">Assign Municipal Collector</h3>
               <button
                 onClick={() => setAssigningRequestId(null)}
-                className="text-slate-400 hover:text-white text-xs font-bold"
+                className="p-1 text-gray-400 hover:text-gray-600 cursor-pointer"
               >
-                ✕ Close
+                <X className="h-5 w-5" />
               </button>
             </div>
-
-            <p className="text-xs text-slate-400">
-              Assign an available eco-collection driver to pickup request {assigningRequestId}.
+            <p className="text-xs text-gray-500">
+              Select an available electric collection vehicle driver for this dispatch.
             </p>
 
-            <div className="space-y-2 max-h-72 overflow-y-auto">
-              {drivers.map((driver) => (
-                <div
-                  key={driver.id}
+            <div className="space-y-2.5 max-h-80 overflow-y-auto">
+              {drivers.map((d) => (
+                <button
+                  key={d.id}
                   onClick={() => {
-                    onRequestStatusChange(assigningRequestId, 'assigned', driver.id);
+                    onRequestStatusChange(assigningRequestId, 'assigned', d.id);
                     setAssigningRequestId(null);
                   }}
-                  className="p-3.5 rounded-2xl bg-slate-950 border border-slate-800 hover:border-indigo-500/50 hover:bg-slate-900 cursor-pointer transition-all flex items-center justify-between"
+                  className="w-full flex items-center gap-3 p-3.5 rounded-xl border border-gray-200 hover:border-indigo-400 hover:bg-indigo-50/50 text-left transition-all cursor-pointer group"
                 >
-                  <div className="flex items-center gap-3">
-                    <img
-                      src={driver.avatar}
-                      alt={driver.name}
-                      className="h-10 w-10 rounded-xl object-cover"
-                    />
-                    <div>
-                      <h4 className="text-xs font-bold text-white">{driver.name}</h4>
-                      <p className="text-[11px] text-slate-400">{driver.vehicleNumber}</p>
-                      <p className="text-[10px] text-emerald-400">{driver.currentZone}</p>
-                    </div>
+                  <div className="w-10 h-10 rounded-xl bg-indigo-100 flex items-center justify-center font-black text-indigo-700 text-sm">
+                    {d.name.split(' ').map((n) => n[0]).join('')}
                   </div>
-                  <button className="px-3 py-1.5 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white font-bold text-xs">
-                    Dispatch
-                  </button>
-                </div>
+                  <div className="flex-1">
+                    <p className="font-extrabold text-gray-900 group-hover:text-indigo-700 transition-colors">
+                      {d.name}
+                    </p>
+                    <p className="text-xs text-gray-500">{d.vehicleType} · {d.vehicleNumber}</p>
+                  </div>
+                  <span className="text-xs text-amber-500 font-bold">★ {d.rating}</span>
+                </button>
               ))}
             </div>
           </div>
         </div>
       )}
+
+      {/* Fleet Overview Section */}
+      <div className="space-y-4">
+        <div className="flex items-center justify-between">
+          <h2 className="text-lg font-black text-gray-900 flex items-center gap-2">
+            <Truck className="h-5 w-5 text-indigo-600" />
+            <span>Active Collection Fleet (Pune PMC)</span>
+          </h2>
+          <span className="text-xs font-bold text-gray-500">{drivers.length} Vehicles Online</span>
+        </div>
+
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+          {drivers.map((d) => (
+            <div key={d.id} className="p-5 rounded-2xl bg-white border border-gray-100 shadow-xs space-y-3">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-emerald-600 to-teal-700 flex items-center justify-center font-black text-white text-sm shadow-xs">
+                  {d.name.split(' ').map((n) => n[0]).join('')}
+                </div>
+                <div className="flex-1">
+                  <p className="font-extrabold text-gray-900">{d.name}</p>
+                  <p className="text-xs text-gray-500">{d.vehicleType}</p>
+                </div>
+                <span className="text-xs font-bold text-amber-500">★ {d.rating}</span>
+              </div>
+
+              <div className="flex items-center justify-between pt-2 border-t border-gray-100 text-xs font-mono">
+                <span className="text-gray-400 font-sans font-semibold">{d.vehicleNumber}</span>
+                <span
+                  className={`px-2 py-0.5 rounded-full text-[10px] font-bold uppercase ${
+                    d.status === 'available'
+                      ? 'bg-emerald-50 text-emerald-700 border border-emerald-200'
+                      : 'bg-cyan-50 text-cyan-700 border border-cyan-200'
+                  }`}
+                >
+                  {d.status.replace(/_/g, ' ')}
+                </span>
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
 
     </div>
   );

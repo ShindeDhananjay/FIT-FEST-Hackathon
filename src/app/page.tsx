@@ -1,37 +1,44 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
+import { SplashScreen } from '@/components/SplashScreen';
+import { LandingPage } from '@/components/LandingPage';
 import { Navbar, ActiveTab } from '@/components/Navbar';
 import { BookingWizard } from '@/components/BookingWizard';
 import { LiveTracker } from '@/components/LiveTracker';
-import { AdminDashboard } from '@/components/AdminDashboard';
 import { PickupHistory } from '@/components/PickupHistory';
 import { CityAnalytics } from '@/components/CityAnalytics';
 import { AiWasteScannerModal } from '@/components/AiWasteScannerModal';
 import { SocialPosterModal } from '@/components/SocialPosterModal';
+import { ChatbotModal } from '@/components/ChatbotModal';
+import { CitizenLoginPage } from '@/components/CitizenLoginPage';
 import {
   getStoredRequests,
   saveStoredRequests,
   getStoredDrivers,
-  saveStoredDrivers,
   getStoredProfile,
   saveStoredProfile,
+  getStoredCitizenUser,
+  saveStoredCitizenUser,
 } from '@/lib/storage';
-import { WastePickupRequest, CollectorDriver, CitizenImpactProfile, RequestStatus, WasteCategory } from '@/types/waste';
-import { CheckCircle2, Sparkles, MapPin, Truck } from 'lucide-react';
+import { WastePickupRequest, CollectorDriver, CitizenImpactProfile, RequestStatus, WasteCategory, CitizenUser } from '@/types/waste';
+import { getApiUrl } from '@/lib/api';
+import { CheckCircle2, Bot } from 'lucide-react';
 
 export default function Home() {
-  const [activeTab, setActiveTab] = useState<ActiveTab>('request');
+  const [showSplash, setShowSplash] = useState(true);
+  const [activeTab, setActiveTab] = useState<ActiveTab>('home');
   const [requests, setRequests] = useState<WastePickupRequest[]>([]);
   const [drivers, setDrivers] = useState<CollectorDriver[]>([]);
   const [userProfile, setUserProfile] = useState<CitizenImpactProfile>(getStoredProfile());
+  const [citizenUser, setCitizenUser] = useState<CitizenUser | null>(null);
+  const [dbConnected, setDbConnected] = useState<boolean>(true);
 
   // Modals state
   const [isAiScannerOpen, setIsAiScannerOpen] = useState(false);
   const [isSocialModalOpen, setIsSocialModalOpen] = useState(false);
-
-  // Selected request for LiveTracker
-  const [selectedRequestId, setSelectedRequestId] = useState<string | undefined>(undefined);
+  const [isChatbotOpen, setIsChatbotOpen] = useState(false);
+  const [chatScannedContext, setChatScannedContext] = useState<any>(null);
 
   // Prefill state from AI Scanner
   const [prefilledCategory, setPrefilledCategory] = useState<WasteCategory | undefined>(undefined);
@@ -41,14 +48,55 @@ export default function Home() {
   // Notification Toast state
   const [toastMessage, setToastMessage] = useState<string | null>(null);
 
+  // Fetch from MongoDB Atlas API with fallback
   useEffect(() => {
-    const loadedRequests = getStoredRequests();
-    const loadedDrivers = getStoredDrivers();
-    const loadedProfile = getStoredProfile();
+    const localRequests = getStoredRequests();
+    const localDrivers = getStoredDrivers();
+    const localProfile = getStoredProfile();
+    const localCitizen = getStoredCitizenUser();
 
-    setRequests(loadedRequests);
-    setDrivers(loadedDrivers);
-    setUserProfile(loadedProfile);
+    setRequests(localRequests);
+    setDrivers(localDrivers);
+    setUserProfile(localProfile);
+    setCitizenUser(localCitizen);
+
+    // Check URL query parameters for ?tab=
+    if (typeof window !== 'undefined') {
+      const params = new URLSearchParams(window.location.search);
+      const tabParam = params.get('tab') as ActiveTab | null;
+      if (tabParam) {
+        if (tabParam === 'request' && !localCitizen) {
+          setActiveTab('login');
+        } else {
+          setActiveTab(tabParam);
+        }
+      }
+    }
+
+    // Test MongoDB Atlas connection
+    fetch(getApiUrl('/api/db-status'))
+      .then((res) => res.json())
+      .then((data) => {
+        if (data.connected) {
+          setDbConnected(true);
+        } else {
+          setDbConnected(false);
+        }
+      })
+      .catch(() => setDbConnected(false));
+
+    // Fetch live requests from MongoDB Atlas
+    fetch(getApiUrl('/api/requests'))
+      .then((res) => res.json())
+      .then((resData) => {
+        if (resData.success && resData.data && resData.data.length > 0) {
+          setRequests(resData.data);
+          saveStoredRequests(resData.data);
+        }
+      })
+      .catch((err) => {
+        console.warn('Using local requests cache:', err);
+      });
   }, []);
 
   const showToast = (msg: string) => {
@@ -56,13 +104,44 @@ export default function Home() {
     setTimeout(() => setToastMessage(null), 3500);
   };
 
+  // Start pickup gate - requires citizen login
+  const handleStartPickup = () => {
+    if (!citizenUser) {
+      setActiveTab('login');
+      showToast('Please sign in or create an account to request a pickup.');
+    } else {
+      setActiveTab('request');
+    }
+  };
+
+  // Successful citizen login
+  const handleLoginSuccess = (user: CitizenUser) => {
+    setCitizenUser(user);
+    saveStoredCitizenUser(user);
+    setUserProfile((prev) => ({
+      ...prev,
+      name: user.name,
+      email: user.email || prev.email,
+      phone: user.phone,
+    }));
+    showToast(`Welcome back, ${user.name}!`);
+    setActiveTab('request');
+  };
+
+  // Citizen sign out
+  const handleLogout = () => {
+    setCitizenUser(null);
+    saveStoredCitizenUser(null);
+    showToast('Signed out of citizen session.');
+    setActiveTab('home');
+  };
+
   // Add new pickup request
-  const handleNewRequestSuccess = (newRequest: WastePickupRequest) => {
+  const handleNewRequestSuccess = async (newRequest: WastePickupRequest) => {
     const updated = [newRequest, ...requests];
     setRequests(updated);
     saveStoredRequests(updated);
 
-    // Update user profile points
     const updatedProfile: CitizenImpactProfile = {
       ...userProfile,
       ecoPoints: userProfile.ecoPoints + newRequest.ecoPointsEarned,
@@ -73,17 +152,28 @@ export default function Home() {
     setUserProfile(updatedProfile);
     saveStoredProfile(updatedProfile);
 
-    setSelectedRequestId(newRequest.id);
-    showToast(`Request ${newRequest.trackingCode} scheduled! Switched to Live Tracking.`);
+    showToast(`Request ${newRequest.trackingCode} created! Tracking is now live.`);
     setActiveTab('track');
+
+    try {
+      await fetch(getApiUrl('/api/requests'), {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(newRequest),
+      });
+    } catch (err) {
+      console.error('Failed syncing new request to MongoDB Atlas', err);
+    }
   };
 
   // Admin changes status
-  const handleRequestStatusChange = (
+  const handleRequestStatusChange = async (
     requestId: string,
     newStatus: RequestStatus,
     driverId?: string
   ) => {
+    let assignedDriverInfo: any = undefined;
+
     const updated = requests.map((req) => {
       if (req.id !== requestId) return req;
 
@@ -99,24 +189,45 @@ export default function Home() {
             avatar: found.avatar,
             etaMinutes: 20,
           };
+          assignedDriverInfo = assignedDriver;
         }
       }
+
+      const completedAt = newStatus === 'completed' ? new Date().toISOString() : req.completedAt;
+      const certificateId =
+        newStatus === 'completed' && !req.certificateId
+          ? `REC-CERT-2026-${Math.floor(1000 + Math.random() * 9000)}`
+          : req.certificateId;
 
       return {
         ...req,
         status: newStatus,
         driver: assignedDriver,
-        completedAt: newStatus === 'completed' ? new Date().toISOString() : req.completedAt,
-        certificateId:
-          newStatus === 'completed' && !req.certificateId
-            ? `REC-CERT-2026-${Math.floor(1000 + Math.random() * 9000)}`
-            : req.certificateId,
+        completedAt,
+        certificateId,
       };
     });
 
     setRequests(updated);
     saveStoredRequests(updated);
-    showToast(`Request status updated to ${newStatus.replace(/_/g, ' ')}!`);
+    showToast(`Status updated to ${newStatus.replace(/_/g, ' ')}`);
+
+    try {
+      const targetReq = updated.find((r) => r.id === requestId);
+      await fetch(getApiUrl('/api/requests'), {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          id: requestId,
+          status: newStatus,
+          driver: assignedDriverInfo,
+          completedAt: targetReq?.completedAt,
+          certificateId: targetReq?.certificateId,
+        }),
+      });
+    } catch (err) {
+      console.error('Failed patching request in MongoDB Atlas', err);
+    }
   };
 
   // AI Scanner detection handler
@@ -128,8 +239,13 @@ export default function Home() {
     setPrefilledCategory(data.category);
     setPrefilledDescription(data.description);
     setPrefilledWeight(data.weight);
-    setActiveTab('request');
-    showToast(`EcoAI detected ${data.category.toUpperCase()}! Form prefilled.`);
+    if (!citizenUser) {
+      setActiveTab('login');
+      showToast(`AI detected ${data.category.toUpperCase()}! Sign in to book.`);
+    } else {
+      setActiveTab('request');
+      showToast(`AI detected ${data.category.toUpperCase()}! Form prefilled.`);
+    }
   };
 
   // Repeat request from history
@@ -137,34 +253,78 @@ export default function Home() {
     setPrefilledCategory(oldReq.category);
     setPrefilledDescription(oldReq.itemDescription);
     setPrefilledWeight(oldReq.estimatedWeightKg);
-    setActiveTab('request');
-    showToast(`Loaded details from ${oldReq.trackingCode}`);
+    if (!citizenUser) {
+      setActiveTab('login');
+      showToast('Please sign in to repeat this pickup.');
+    } else {
+      setActiveTab('request');
+      showToast(`Loaded details from ${oldReq.trackingCode}`);
+    }
   };
 
+  const handleSplashComplete = useCallback(() => setShowSplash(false), []);
+
+  // --- RENDER ---
+
+  if (showSplash) {
+    return <SplashScreen onComplete={handleSplashComplete} />;
+  }
+
   return (
-    <div className="min-h-screen bg-slate-950 text-slate-100 flex flex-col font-sans selection:bg-emerald-500 selection:text-slate-950">
-      
+    <div className="min-h-screen flex flex-col bg-[var(--bg-primary)]">
+
       {/* Toast Notification */}
       {toastMessage && (
-        <div className="fixed top-20 right-6 z-50 animate-bounce">
-          <div className="flex items-center gap-2.5 px-4 py-3 rounded-2xl bg-emerald-500 text-slate-950 font-bold text-xs shadow-2xl shadow-emerald-500/40">
+        <div className="fixed top-20 right-6 z-50 animate-fade-in-up">
+          <div className="flex items-center gap-2.5 px-5 py-3 rounded-xl bg-emerald-600 text-white font-medium text-sm shadow-lg shadow-emerald-600/20">
             <CheckCircle2 className="h-4 w-4 shrink-0" />
             <span>{toastMessage}</span>
           </div>
         </div>
       )}
 
-      {/* Main High-Tech Navbar */}
-      <Navbar
-        activeTab={activeTab}
-        setActiveTab={setActiveTab}
-        onOpenAiScanner={() => setIsAiScannerOpen(true)}
-        onOpenSocialModal={() => setIsSocialModalOpen(true)}
-        userProfile={userProfile}
-      />
+      {/* Navbar — rendered on all screens except dedicated login view */}
+      {activeTab !== 'login' && (
+        <Navbar
+          activeTab={activeTab}
+          setActiveTab={(tab) => {
+            if (tab === 'request' && !citizenUser) {
+              setActiveTab('login');
+              showToast('Please sign in to schedule a pickup.');
+            } else {
+              setActiveTab(tab);
+            }
+          }}
+          onOpenAiScanner={() => setIsAiScannerOpen(true)}
+          userProfile={userProfile}
+          dbConnected={dbConnected}
+          currentUser={citizenUser}
+          onLoginClick={() => setActiveTab('login')}
+          onLogoutClick={handleLogout}
+        />
+      )}
 
-      {/* Active Tab Viewport */}
-      <main className="flex-1 pb-16">
+      {/* Main Content */}
+      <main className="flex-1 pb-20 md:pb-0">
+        {activeTab === 'home' && (
+          <LandingPage
+            onStartPickup={handleStartPickup}
+            onScrollToHowItWorks={() => {
+              const el = document.getElementById('how-it-works');
+              if (el) el.scrollIntoView({ behavior: 'smooth' });
+            }}
+          />
+        )}
+
+        {activeTab === 'login' && (
+          <CitizenLoginPage
+            onSuccess={handleLoginSuccess}
+            onBackToHome={() => setActiveTab('home')}
+            title="Citizen Sign In"
+            subtitle="Sign in to request doorstep waste collections, track vehicles live, and earn green rewards."
+          />
+        )}
+
         {activeTab === 'request' && (
           <BookingWizard
             onSuccess={handleNewRequestSuccess}
@@ -172,15 +332,18 @@ export default function Home() {
             prefilledCategory={prefilledCategory}
             prefilledDescription={prefilledDescription}
             prefilledWeight={prefilledWeight}
+            citizenUser={citizenUser}
           />
         )}
 
         {activeTab === 'track' && (
           <LiveTracker
             requests={requests}
-            selectedRequestId={selectedRequestId}
-            onRequestSelect={(id) => setSelectedRequestId(id)}
-            onOpenNewBooking={() => setActiveTab('request')}
+            onRequestsUpdate={(updated) => {
+              setRequests(updated);
+              saveStoredRequests(updated);
+            }}
+            onNavigateToBooking={() => setActiveTab('request')}
           />
         )}
 
@@ -188,22 +351,9 @@ export default function Home() {
           <PickupHistory
             requests={requests}
             onSelectTrackRequest={(id) => {
-              setSelectedRequestId(id);
               setActiveTab('track');
             }}
             onRepeatPickup={handleRepeatPickup}
-          />
-        )}
-
-        {activeTab === 'admin' && (
-          <AdminDashboard
-            requests={requests}
-            drivers={drivers}
-            onRequestStatusChange={handleRequestStatusChange}
-            onSelectTrackRequest={(id) => {
-              setSelectedRequestId(id);
-              setActiveTab('track');
-            }}
           />
         )}
 
@@ -217,6 +367,10 @@ export default function Home() {
         isOpen={isAiScannerOpen}
         onClose={() => setIsAiScannerOpen(false)}
         onApplyDetectedWaste={handleApplyDetectedWaste}
+        onOpenChatWithContext={(ctx) => {
+          setChatScannedContext(ctx);
+          setIsChatbotOpen(true);
+        }}
       />
 
       {/* Social Media & Official Poster Modal */}
@@ -225,31 +379,30 @@ export default function Home() {
         onClose={() => setIsSocialModalOpen(false)}
       />
 
-      {/* Footer with Mandatory Flora Institute & GDG Pune Accreditation */}
-      <footer className="border-t border-slate-900 bg-slate-950 py-8 px-4 text-center text-xs text-slate-500">
-        <div className="max-w-7xl mx-auto flex flex-col sm:flex-row items-center justify-between gap-4">
-          <div className="flex items-center gap-2">
-            <span className="font-extrabold text-white">FITFEST ECOLOOP</span>
-            <span>• Problem Statement 4</span>
+      {/* Floating EcoBot AI Assistant Button */}
+      {!isChatbotOpen && (
+        <button
+          type="button"
+          onClick={() => setIsChatbotOpen(true)}
+          className="fixed bottom-6 right-6 z-40 px-4 py-3 rounded-full bg-gradient-to-r from-emerald-600 to-teal-700 hover:from-emerald-500 hover:to-teal-600 text-white shadow-xl shadow-emerald-600/30 flex items-center gap-2.5 font-bold text-xs transition-all active:scale-95 group cursor-pointer border border-emerald-400/30"
+          title="Chat with EcoBot AI Assistant"
+        >
+          <div className="relative">
+            <Bot className="h-5 w-5 group-hover:rotate-12 transition-transform" />
+            <span className="absolute -top-1 -right-1 w-2.5 h-2.5 bg-emerald-400 rounded-full border-2 border-white animate-pulse" />
           </div>
+          <span>Need Help? Ask EcoBot AI</span>
+        </button>
+      )}
 
-          <div className="text-[11px] text-slate-400">
-            Flora Institute of Technology • @gdg.fit.pune • @the_flora_institutes
-          </div>
-
-          <div className="flex items-center gap-3 text-[11px]">
-            <button
-              onClick={() => setIsSocialModalOpen(true)}
-              className="text-emerald-400 hover:underline cursor-pointer"
-            >
-              View Poster & Social Copy
-            </button>
-            <span>•</span>
-            <span className="text-slate-400">Deployed on Google Cloud Run</span>
-          </div>
-        </div>
-      </footer>
-
+      {/* EcoBot Chatbot Modal */}
+      <ChatbotModal
+        isOpen={isChatbotOpen}
+        onClose={() => setIsChatbotOpen(false)}
+        onOpenBooking={handleStartPickup}
+        onOpenScanner={() => setIsAiScannerOpen(true)}
+        scannedContext={chatScannedContext}
+      />
     </div>
   );
 }

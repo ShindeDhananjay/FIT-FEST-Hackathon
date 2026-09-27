@@ -1,4 +1,4 @@
-import { WastePickupRequest, CollectorDriver, CitizenImpactProfile } from '@/types/waste';
+import { WastePickupRequest, CollectorDriver, CitizenImpactProfile, CitizenUser } from '@/types/waste';
 
 export const INITIAL_DRIVERS: CollectorDriver[] = [
   {
@@ -249,5 +249,31 @@ export function saveStoredProfile(profile: CitizenImpactProfile): void {
     localStorage.setItem(STORAGE_KEYS.PROFILE, JSON.stringify(profile));
   } catch (err) {
     console.error('Failed saving profile', err);
+  }
+}
+
+const CITIZEN_USER_KEY = 'ecoloop_citizen_user_v1';
+
+export function getStoredCitizenUser(): CitizenUser | null {
+  if (typeof window === 'undefined') return null;
+  try {
+    const raw = localStorage.getItem(CITIZEN_USER_KEY);
+    if (!raw) return null;
+    return JSON.parse(raw);
+  } catch (err) {
+    return null;
+  }
+}
+
+export function saveStoredCitizenUser(user: CitizenUser | null): void {
+  if (typeof window === 'undefined') return;
+  try {
+    if (user) {
+      localStorage.setItem(CITIZEN_USER_KEY, JSON.stringify(user));
+    } else {
+      localStorage.removeItem(CITIZEN_USER_KEY);
+    }
+  } catch (err) {
+    console.error('Failed saving citizen user session', err);
   }
 }

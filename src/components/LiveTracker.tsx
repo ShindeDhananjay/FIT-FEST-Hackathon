@@ -1,417 +1,433 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useCallback } from 'react';
+import { motion } from 'framer-motion';
 import {
+  MapPin,
+  Truck,
   CheckCircle2,
   Clock,
-  Truck,
-  CheckCheck,
-  MapPin,
   Phone,
-  ShieldCheck,
-  Award,
-  Navigation,
-  Sparkles,
-  Calendar,
-  Layers,
+  Package,
   ArrowRight,
-  ExternalLink,
+  User,
+  Search,
+  Recycle,
+  RefreshCw,
+  Share2,
+  Check,
+  ShieldCheck,
+  Navigation,
+  Compass,
+  Radio,
 } from 'lucide-react';
-import { WastePickupRequest, RequestStatus } from '@/types/waste';
-import { WASTE_CATEGORIES } from '@/constants/wasteCategories';
+import { WastePickupRequest, CollectorDriver, RequestStatus } from '@/types/waste';
 
 interface LiveTrackerProps {
   requests: WastePickupRequest[];
-  selectedRequestId?: string;
-  onRequestSelect: (id: string) => void;
-  onOpenNewBooking: () => void;
+  onRequestsUpdate: (updatedRequests: WastePickupRequest[]) => void;
+  onNavigateToBooking: () => void;
 }
+
+const STATUS_STEPS: { key: RequestStatus; title: string; subtitle: string; icon: any }[] = [
+  { key: 'submitted', title: 'Pickup Booked', subtitle: 'Order received', icon: Package },
+  { key: 'assigned', title: 'Driver Assigned', subtitle: 'Collector allocated', icon: User },
+  { key: 'on_the_way', title: 'On The Way', subtitle: 'Driver coming to you', icon: Truck },
+  { key: 'completed', title: 'Picked Up & Recycled', subtitle: 'Points credited', icon: CheckCircle2 },
+];
+
+const MOCK_DRIVERS: CollectorDriver[] = [
+  {
+    id: 'D-01',
+    name: 'Ramesh Patil',
+    vehicleNumber: 'MH-12-AB-4321',
+    vehicleType: 'Electric Mini-Van',
+    phone: '+91 98223 91023',
+    currentZone: 'Kothrud',
+    rating: 4.9,
+    status: 'on_route',
+    assignedRequestsCount: 4,
+    avatar: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=100&auto=format&fit=crop&q=80',
+  },
+  {
+    id: 'D-02',
+    name: 'Sneha Kulkarni',
+    vehicleNumber: 'MH-14-CD-7890',
+    vehicleType: 'Electric Auto',
+    phone: '+91 90112 34567',
+    currentZone: 'Shivaji Nagar',
+    rating: 4.8,
+    status: 'available',
+    assignedRequestsCount: 2,
+    avatar: 'https://images.unsplash.com/photo-1580489944761-15a19d654956?w=100&auto=format&fit=crop&q=80',
+  },
+];
 
 export const LiveTracker: React.FC<LiveTrackerProps> = ({
   requests,
-  selectedRequestId,
-  onRequestSelect,
-  onOpenNewBooking,
+  onRequestsUpdate,
+  onNavigateToBooking,
 }) => {
-  // If no specific request is selected, pick the first active or latest request
-  const activeRequests = requests.filter((r) => r.status !== 'cancelled');
-  const currentRequest =
-    activeRequests.find((r) => r.id === selectedRequestId) ||
-    activeRequests.find((r) => r.status === 'on_the_way') ||
-    activeRequests.find((r) => r.status === 'assigned') ||
-    activeRequests.find((r) => r.status === 'submitted') ||
-    activeRequests[0];
+  const [selectedRequestId, setSelectedRequestId] = useState<string | null>(null);
+  const [isSimulating, setIsSimulating] = useState(false);
+  const [etaMinutes, setEtaMinutes] = useState(12);
+  const [copiedCode, setCopiedCode] = useState(false);
 
-  const [simulatedEta, setSimulatedEta] = useState<number>(
-    currentRequest?.driver?.etaMinutes || 12
-  );
+  // Active requests sorted newest first
+  const activeRequests = requests
+    .filter((r) => r.status !== 'cancelled')
+    .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
 
-  useEffect(() => {
-    if (currentRequest?.status === 'on_the_way') {
-      const interval = setInterval(() => {
-        setSimulatedEta((prev) => (prev > 1 ? prev - 1 : 1));
-      }, 15000);
-      return () => clearInterval(interval);
-    }
-  }, [currentRequest?.status]);
+  const selectedRequest = selectedRequestId
+    ? requests.find((r) => r.id === selectedRequestId) || null
+    : activeRequests[0] || null;
 
-  if (!currentRequest) {
+  const driver: CollectorDriver = selectedRequest?.driver
+    ? {
+        id: selectedRequest.driver.id,
+        name: selectedRequest.driver.name,
+        phone: selectedRequest.driver.phone,
+        vehicleNumber: selectedRequest.driver.vehicleNumber,
+        vehicleType: 'Electric Mini-Van',
+        currentZone: selectedRequest.cityZone || 'Pune Central',
+        status: 'on_route' as const,
+        assignedRequestsCount: 3,
+        rating: 4.9,
+        avatar: selectedRequest.driver.avatar,
+      }
+    : MOCK_DRIVERS[0];
+
+  const statusIndex = STATUS_STEPS.findIndex((s) => s.key === selectedRequest?.status);
+
+  // Advance simulation step
+  const simulateProgress = useCallback(() => {
+    if (!selectedRequest || isSimulating) return;
+    setIsSimulating(true);
+
+    const statuses: RequestStatus[] = ['submitted', 'assigned', 'on_the_way', 'completed'];
+    const currentIndex = statuses.indexOf(selectedRequest.status);
+    let nextIndex = (currentIndex + 1) % statuses.length;
+
+    setTimeout(() => {
+      const updated = requests.map((r) => {
+        if (r.id !== selectedRequest.id) return r;
+        return {
+          ...r,
+          status: statuses[nextIndex],
+          driver:
+            nextIndex >= 1
+              ? {
+                  id: driver.id,
+                  name: driver.name,
+                  phone: driver.phone,
+                  vehicleNumber: driver.vehicleNumber,
+                  avatar: driver.avatar,
+                  etaMinutes: nextIndex === 2 ? 8 : 15,
+                }
+              : r.driver,
+        };
+      });
+      setEtaMinutes(nextIndex === 2 ? 8 : 14);
+      onRequestsUpdate(updated);
+      setIsSimulating(false);
+    }, 600);
+  }, [selectedRequest, requests, onRequestsUpdate, isSimulating, driver]);
+
+  const copyTracking = (code: string) => {
+    navigator.clipboard.writeText(code);
+    setCopiedCode(true);
+    setTimeout(() => setCopiedCode(false), 2000);
+  };
+
+  if (activeRequests.length === 0) {
     return (
-      <div className="max-w-3xl mx-auto py-12 px-4 text-center">
-        <div className="h-16 w-16 mx-auto rounded-3xl bg-slate-900 border border-slate-800 flex items-center justify-center text-slate-500 mb-4">
-          <Truck className="h-8 w-8 text-emerald-400" />
+      <div className="w-full min-h-[calc(100vh-4.5rem)] flex items-center justify-center py-16 px-4">
+        <div className="max-w-md w-full bg-white p-8 rounded-3xl border border-gray-100 shadow-sm text-center">
+          <div className="w-16 h-16 rounded-2xl bg-emerald-50 flex items-center justify-center mx-auto mb-4 text-emerald-600">
+            <Truck className="h-8 w-8" />
+          </div>
+          <h2 className="text-xl font-bold text-gray-900 mb-2">No Active Pickups Right Now</h2>
+          <p className="text-gray-500 text-sm mb-6">
+            Schedule a free waste collection and you&apos;ll be able to track your driver here in real-time.
+          </p>
+          <button
+            onClick={onNavigateToBooking}
+            className="w-full py-4 rounded-2xl bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-sm shadow-md shadow-emerald-600/20 cursor-pointer"
+          >
+            Book a Free Pickup
+          </button>
         </div>
-        <h2 className="text-xl font-bold text-white">No Active Pickups Found</h2>
-        <p className="text-sm text-slate-400 mt-2 max-w-md mx-auto">
-          You haven't requested any waste collection yet. Create your first pickup request to track our smart collection trucks in real-time.
-        </p>
-        <button
-          onClick={onOpenNewBooking}
-          className="mt-6 px-6 py-2.5 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-bold text-sm cursor-pointer shadow-lg shadow-emerald-500/20"
-        >
-          Create Pickup Request
-        </button>
       </div>
     );
   }
 
-  const categoryInfo = WASTE_CATEGORIES[currentRequest.category];
-
-  // Pipeline step calculation
-  const getStepState = (targetStatus: RequestStatus) => {
-    const order: RequestStatus[] = ['submitted', 'assigned', 'on_the_way', 'completed'];
-    const currentIndex = order.indexOf(currentRequest.status);
-    const targetIndex = order.indexOf(targetStatus);
-
-    if (currentRequest.status === 'cancelled') return 'cancelled';
-    if (targetIndex < currentIndex) return 'completed';
-    if (targetIndex === currentIndex) return 'current';
-    return 'upcoming';
-  };
-
   return (
-    <div className="max-w-5xl mx-auto py-6 px-4 sm:px-6 space-y-6">
-      
-      {/* Active Pickup Selector Bar */}
-      <div className="flex items-center justify-between gap-4 overflow-x-auto pb-2 scrollbar-none">
-        <div className="flex items-center gap-2">
-          <span className="text-xs font-bold text-slate-400 uppercase tracking-wider whitespace-nowrap">
-            Your Pickups:
-          </span>
-          <div className="flex items-center gap-2">
-            {activeRequests.slice(0, 5).map((req) => (
-              <button
-                key={req.id}
-                onClick={() => onRequestSelect(req.id)}
-                className={`px-3 py-1.5 rounded-xl text-xs font-semibold border transition-all whitespace-nowrap cursor-pointer ${
-                  req.id === currentRequest.id
-                    ? 'bg-emerald-500 text-slate-950 border-emerald-400 shadow-md shadow-emerald-500/20'
-                    : 'bg-slate-900 text-slate-300 border-slate-800 hover:border-slate-700'
-                }`}
-              >
-                {req.trackingCode} • {req.category}
-              </button>
-            ))}
-          </div>
-        </div>
-
-        <button
-          onClick={onOpenNewBooking}
-          className="text-xs font-bold text-emerald-400 hover:text-emerald-300 flex items-center gap-1 cursor-pointer whitespace-nowrap"
-        >
-          <span>+ New Request</span>
-        </button>
-      </div>
-
-      {/* Main Tracking Board */}
-      <div className="p-6 rounded-3xl bg-slate-900 border border-slate-800 shadow-xl space-y-6">
+    <div className="w-full min-h-[calc(100vh-4.5rem)] bg-gradient-to-b from-[#f8faf9] to-[#edf3ef] py-6 sm:py-10 px-4 sm:px-6 lg:px-8">
+      <div className="max-w-7xl mx-auto">
         
-        {/* Header with Tracking ID & Live Status */}
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-6 border-b border-slate-800">
+        {/* Full-width Top Header */}
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-8 pb-6 border-b border-gray-200/80">
           <div>
-            <div className="flex items-center gap-3">
-              <span className="text-2xl font-black text-white tracking-tight">
-                {currentRequest.trackingCode}
-              </span>
-              <span
-                className={`px-3 py-1 rounded-full text-xs font-bold uppercase tracking-wider border ${
-                  currentRequest.status === 'completed'
-                    ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/30'
-                    : currentRequest.status === 'on_the_way'
-                    ? 'bg-cyan-500/10 text-cyan-400 border-cyan-500/30 animate-pulse'
-                    : currentRequest.status === 'assigned'
-                    ? 'bg-amber-500/10 text-amber-400 border-amber-500/30'
-                    : 'bg-slate-800 text-slate-300 border-slate-700'
-                }`}
-              >
-                {currentRequest.status.replace(/_/g, ' ')}
+            <div className="flex items-center gap-2 mb-1.5">
+              <span className="w-2.5 h-2.5 rounded-full bg-emerald-500 animate-ping" />
+              <span className="text-xs font-bold uppercase tracking-wider text-emerald-800 bg-emerald-100 px-2.5 py-0.5 rounded-full">
+                Live Doorstep Telemetry
               </span>
             </div>
-            <p className="text-xs text-slate-400 mt-1">
-              Registered on {new Date(currentRequest.createdAt).toLocaleDateString()} at{' '}
-              {new Date(currentRequest.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+            <h1 className="text-3xl sm:text-4xl font-black text-gray-900 tracking-tight">
+              Live Pickup Tracker
+            </h1>
+            <p className="text-gray-500 text-sm mt-1">
+              Watch your municipal driver en route to your doorstep in real-time.
             </p>
           </div>
 
           <div className="flex items-center gap-3">
-            <div className="p-3 rounded-2xl bg-slate-950 border border-slate-800 text-right">
-              <span className="text-[10px] text-slate-400 block uppercase font-bold">Category</span>
-              <span className="text-sm font-bold text-emerald-400 capitalize">{currentRequest.category}</span>
-            </div>
-            <div className="p-3 rounded-2xl bg-slate-950 border border-slate-800 text-right">
-              <span className="text-[10px] text-slate-400 block uppercase font-bold">Estimated Weight</span>
-              <span className="text-sm font-bold text-white">{currentRequest.estimatedWeightKg} kg</span>
-            </div>
+            <button
+              type="button"
+              onClick={simulateProgress}
+              disabled={isSimulating}
+              className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-white hover:bg-emerald-50 text-emerald-800 border border-emerald-200 text-xs font-bold transition-all shadow-sm cursor-pointer"
+              title="Advance step for demonstration"
+            >
+              <RefreshCw className={`h-4 w-4 ${isSimulating ? 'animate-spin text-emerald-600' : ''}`} />
+              <span>Advance Step (Demo)</span>
+            </button>
           </div>
         </div>
 
-        {/* 4-STAGE PIPELINE (Problem statement requirement) */}
-        <div>
-          <label className="text-xs font-bold text-slate-400 uppercase tracking-wider block mb-4">
-            Live Dispatch & Collection Pipeline
-          </label>
-
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-3 relative">
+        {selectedRequest && (
+          <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
             
-            {/* Step 1: Request Submitted */}
-            {(() => {
-              const state = getStepState('submitted');
-              return (
-                <div
-                  className={`p-4 rounded-2xl border transition-all ${
-                    state === 'current'
-                      ? 'bg-emerald-950/40 border-emerald-500 ring-2 ring-emerald-500/20'
-                      : state === 'completed'
-                      ? 'bg-slate-950/80 border-emerald-500/40'
-                      : 'bg-slate-950/40 border-slate-800'
-                  }`}
-                >
-                  <div className="flex items-center justify-between mb-2">
-                    <span className="h-7 w-7 rounded-xl bg-emerald-500/20 text-emerald-400 flex items-center justify-center text-xs font-bold">
-                      1
-                    </span>
-                    {state === 'completed' ? (
-                      <CheckCircle2 className="h-4 w-4 text-emerald-400" />
-                    ) : (
-                      <Clock className="h-4 w-4 text-slate-500" />
-                    )}
-                  </div>
-                  <h4 className="text-xs font-bold text-white">Request Submitted</h4>
-                  <p className="text-[11px] text-slate-400 mt-1">Order verified & entered into dispatch queue</p>
-                </div>
-              );
-            })()}
-
-            {/* Step 2: Collector Assigned */}
-            {(() => {
-              const state = getStepState('assigned');
-              return (
-                <div
-                  className={`p-4 rounded-2xl border transition-all ${
-                    state === 'current'
-                      ? 'bg-emerald-950/40 border-emerald-500 ring-2 ring-emerald-500/20'
-                      : state === 'completed'
-                      ? 'bg-slate-950/80 border-emerald-500/40'
-                      : 'bg-slate-950/40 border-slate-800'
-                  }`}
-                >
-                  <div className="flex items-center justify-between mb-2">
-                    <span className="h-7 w-7 rounded-xl bg-emerald-500/20 text-emerald-400 flex items-center justify-center text-xs font-bold">
-                      2
-                    </span>
-                    {state === 'completed' ? (
-                      <CheckCircle2 className="h-4 w-4 text-emerald-400" />
-                    ) : (
-                      <Clock className="h-4 w-4 text-slate-500" />
-                    )}
-                  </div>
-                  <h4 className="text-xs font-bold text-white">Collector Assigned</h4>
-                  <p className="text-[11px] text-slate-400 mt-1">
-                    {currentRequest.driver ? `${currentRequest.driver.name} assigned` : 'Routing nearest eco-vehicle'}
-                  </p>
-                </div>
-              );
-            })()}
-
-            {/* Step 3: On The Way */}
-            {(() => {
-              const state = getStepState('on_the_way');
-              return (
-                <div
-                  className={`p-4 rounded-2xl border transition-all ${
-                    state === 'current'
-                      ? 'bg-cyan-950/50 border-cyan-400 ring-2 ring-cyan-500/20 shadow-lg shadow-cyan-950/40'
-                      : state === 'completed'
-                      ? 'bg-slate-950/80 border-emerald-500/40'
-                      : 'bg-slate-950/40 border-slate-800'
-                  }`}
-                >
-                  <div className="flex items-center justify-between mb-2">
-                    <span className="h-7 w-7 rounded-xl bg-cyan-500/20 text-cyan-400 flex items-center justify-center text-xs font-bold">
-                      3
-                    </span>
-                    {state === 'completed' ? (
-                      <CheckCircle2 className="h-4 w-4 text-emerald-400" />
-                    ) : state === 'current' ? (
-                      <Truck className="h-4 w-4 text-cyan-400 animate-bounce" />
-                    ) : (
-                      <Clock className="h-4 w-4 text-slate-500" />
-                    )}
-                  </div>
-                  <h4 className="text-xs font-bold text-white">On The Way</h4>
-                  <p className="text-[11px] text-slate-400 mt-1">
-                    {state === 'current' ? `En route • ETA ~${simulatedEta} mins` : 'Live navigation in progress'}
-                  </p>
-                </div>
-              );
-            })()}
-
-            {/* Step 4: Completed / Recycled */}
-            {(() => {
-              const state = getStepState('completed');
-              return (
-                <div
-                  className={`p-4 rounded-2xl border transition-all ${
-                    state === 'completed' || state === 'current'
-                      ? 'bg-emerald-950/60 border-emerald-400 ring-2 ring-emerald-500/20 shadow-lg shadow-emerald-950/40'
-                      : 'bg-slate-950/40 border-slate-800'
-                  }`}
-                >
-                  <div className="flex items-center justify-between mb-2">
-                    <span className="h-7 w-7 rounded-xl bg-emerald-500/20 text-emerald-400 flex items-center justify-center text-xs font-bold">
-                      4
-                    </span>
-                    {state === 'completed' ? (
-                      <CheckCheck className="h-4 w-4 text-emerald-400" />
-                    ) : (
-                      <Clock className="h-4 w-4 text-slate-500" />
-                    )}
-                  </div>
-                  <h4 className="text-xs font-bold text-white">Completed & Recycled</h4>
-                  <p className="text-[11px] text-slate-400 mt-1">Weighed, certificate minted & points awarded</p>
-                </div>
-              );
-            })()}
-
-          </div>
-        </div>
-
-        {/* DRIVER & LIVE GPS DISPATCH SIMULATION */}
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 pt-2">
-          
-          {/* Driver Card */}
-          <div className="p-5 rounded-2xl bg-slate-950 border border-slate-800 space-y-4">
-            <div className="flex items-center justify-between">
-              <span className="text-xs font-bold text-slate-400 uppercase tracking-wider flex items-center gap-1.5">
-                <Truck className="h-3.5 w-3.5 text-emerald-400" />
-                Assigned Eco-Collector
-              </span>
-              {currentRequest.status === 'on_the_way' && (
-                <span className="flex items-center gap-1.5 text-[11px] font-bold text-cyan-400 bg-cyan-950/60 px-2 py-0.5 rounded-full border border-cyan-500/30">
-                  <span className="h-1.5 w-1.5 rounded-full bg-cyan-400 animate-ping" />
-                  Live GPS En Route
-                </span>
-              )}
-            </div>
-
-            {currentRequest.driver ? (
-              <div className="space-y-4">
-                <div className="flex items-center gap-3">
-                  <img
-                    src={currentRequest.driver.avatar}
-                    alt={currentRequest.driver.name}
-                    className="h-12 w-12 rounded-2xl object-cover border-2 border-emerald-500/40"
-                  />
+            {/* LEFT COLUMN: Order Details & Driver Card (5 Cols) */}
+            <div className="lg:col-span-5 space-y-5">
+              
+              {/* Main Status Hero Card */}
+              <div className="bg-white p-6 rounded-3xl border border-gray-100 shadow-sm space-y-5">
+                <div className="flex items-start justify-between">
                   <div>
-                    <h4 className="text-sm font-bold text-white">{currentRequest.driver.name}</h4>
-                    <p className="text-xs text-slate-400">{currentRequest.driver.vehicleNumber}</p>
-                    <div className="flex items-center gap-2 mt-1">
-                      <span className="text-[10px] text-amber-400 font-bold bg-amber-950/40 px-1.5 py-0.5 rounded border border-amber-500/20">
-                        ★ 4.9 Driver Rating
-                      </span>
-                      <span className="text-[10px] text-emerald-400 font-semibold">
-                        EV Zero-Emission Truck
-                      </span>
+                    <span className="text-xs font-extrabold uppercase tracking-wide text-emerald-700 bg-emerald-50 px-2.5 py-1 rounded-lg border border-emerald-200">
+                      {selectedRequest.status === 'completed'
+                        ? '🎉 Pickup Finished'
+                        : selectedRequest.status === 'on_the_way'
+                        ? '🚚 Driver On The Way'
+                        : '⏳ Order Confirmed'}
+                    </span>
+                    <h2 className="text-2xl font-black text-gray-900 mt-2 tracking-tight">
+                      {selectedRequest.status === 'completed'
+                        ? 'Recycled & Certified!'
+                        : `Arriving in ~${etaMinutes} mins`}
+                    </h2>
+                    <p className="text-xs text-gray-500 mt-1">
+                      {selectedRequest.pickupAddress || selectedRequest.cityZone}
+                    </p>
+                  </div>
+
+                  {/* Copy Code */}
+                  <button
+                    type="button"
+                    onClick={() => copyTracking(selectedRequest.trackingCode)}
+                    className="flex items-center gap-1.5 text-xs font-mono bg-gray-100 hover:bg-gray-200 text-gray-800 px-3 py-1.5 rounded-xl font-bold transition-colors cursor-pointer"
+                  >
+                    <span>{selectedRequest.trackingCode}</span>
+                    {copiedCode ? <Check className="h-3.5 w-3.5 text-emerald-600" /> : <Share2 className="h-3.5 w-3.5 text-gray-400" />}
+                  </button>
+                </div>
+
+                {/* Driver Card */}
+                {statusIndex >= 1 && (
+                  <div className="p-4 rounded-2xl bg-gray-50 border border-gray-100 flex items-center justify-between gap-3">
+                    <div className="flex items-center gap-3">
+                      <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-emerald-600 to-teal-700 text-white flex items-center justify-center font-black text-base shadow-sm">
+                        {driver.name.split(' ').map((n) => n[0]).join('')}
+                      </div>
+                      <div>
+                        <h4 className="text-sm font-bold text-gray-900">{driver.name}</h4>
+                        <p className="text-xs text-gray-500">{driver.vehicleType} · {driver.vehicleNumber}</p>
+                        <span className="text-xs text-amber-500 font-bold">★ {driver.rating}</span>
+                      </div>
                     </div>
+
+                    <a
+                      href={`tel:${driver.phone}`}
+                      className="inline-flex items-center gap-1.5 px-4 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs shadow-sm transition-colors cursor-pointer"
+                    >
+                      <Phone className="h-3.5 w-3.5" />
+                      <span>Call Driver</span>
+                    </a>
+                  </div>
+                )}
+
+                {/* Simple 4-Step Progress */}
+                <div className="space-y-3 pt-2 border-t border-gray-100">
+                  <span className="text-xs font-bold text-gray-400 uppercase tracking-wider block">
+                    Collection Pipeline
+                  </span>
+                  <div className="grid grid-cols-4 gap-2">
+                    {STATUS_STEPS.map((s, idx) => {
+                      const isDone = idx <= statusIndex;
+                      const isCurrent = idx === statusIndex;
+                      return (
+                        <div key={s.key} className="flex flex-col items-center text-center">
+                          <div
+                            className={`w-9 h-9 rounded-xl flex items-center justify-center text-xs font-black transition-all mb-1 ${
+                              isDone
+                                ? 'bg-emerald-600 text-white shadow-xs'
+                                : 'bg-gray-100 text-gray-400'
+                            } ${isCurrent ? 'ring-4 ring-emerald-100 ring-offset-1' : ''}`}
+                          >
+                            {isDone ? <Check className="h-4 w-4 stroke-[3]" /> : idx + 1}
+                          </div>
+                          <span className={`text-[10px] font-bold leading-tight ${isDone ? 'text-gray-900' : 'text-gray-400'}`}>
+                            {s.title}
+                          </span>
+                        </div>
+                      );
+                    })}
                   </div>
                 </div>
 
-                <div className="flex items-center gap-2 pt-2 border-t border-slate-850">
-                  <a
-                    href={`tel:${currentRequest.driver.phone}`}
-                    className="flex-1 py-2 px-3 rounded-xl bg-slate-900 hover:bg-slate-850 text-slate-200 border border-slate-800 text-xs font-semibold flex items-center justify-center gap-2 transition-all cursor-pointer"
-                  >
-                    <Phone className="h-3.5 w-3.5 text-emerald-400" />
-                    <span>Call Driver ({currentRequest.driver.phone})</span>
-                  </a>
+                {/* Details Snapshot */}
+                <div className="pt-3 border-t border-gray-100 space-y-2 text-xs text-gray-600">
+                  <div className="flex justify-between">
+                    <span className="text-gray-400">Waste Material:</span>
+                    <span className="font-bold text-gray-900 capitalize">{selectedRequest.category} ({selectedRequest.estimatedWeightKg} kg)</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-gray-400">Reward:</span>
+                    <span className="font-bold text-emerald-700">+{selectedRequest.ecoPointsEarned} EcoPoints</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-gray-400">Schedule:</span>
+                    <span className="font-semibold text-gray-800">{selectedRequest.scheduledDate} · {selectedRequest.scheduledSlot?.split('(')[0]}</span>
+                  </div>
                 </div>
               </div>
-            ) : (
-              <div className="py-6 text-center text-slate-500 text-xs">
-                <Clock className="h-6 w-6 text-slate-600 mx-auto mb-2" />
-                Dispatch matching is active. Driver will appear here shortly.
-              </div>
-            )}
-          </div>
 
-          {/* Location & Instructions Details */}
-          <div className="p-5 rounded-2xl bg-slate-950 border border-slate-800 space-y-3">
-            <span className="text-xs font-bold text-slate-400 uppercase tracking-wider flex items-center gap-1.5">
-              <MapPin className="h-3.5 w-3.5 text-emerald-400" />
-              Pickup Location & Schedule
-            </span>
-
-            <div className="space-y-2 text-xs">
-              <div>
-                <span className="text-slate-500 block text-[10px]">Address</span>
-                <span className="font-semibold text-slate-200">{currentRequest.pickupAddress}</span>
-              </div>
-              <div className="grid grid-cols-2 gap-2">
-                <div>
-                  <span className="text-slate-500 block text-[10px]">Zone</span>
-                  <span className="font-semibold text-slate-200">{currentRequest.cityZone}</span>
-                </div>
-                <div>
-                  <span className="text-slate-500 block text-[10px]">Time Slot</span>
-                  <span className="font-semibold text-slate-200">{currentRequest.scheduledSlot.split('(')[0]}</span>
-                </div>
-              </div>
-              {currentRequest.specialInstructions && (
-                <div className="p-2.5 rounded-xl bg-slate-900/60 border border-slate-850 text-[11px] text-slate-300">
-                  <span className="font-bold text-slate-400">Note: </span>
-                  {currentRequest.specialInstructions}
+              {/* Other Active Requests list */}
+              {activeRequests.length > 1 && (
+                <div className="bg-white p-5 rounded-3xl border border-gray-100 shadow-sm space-y-2">
+                  <span className="text-xs font-bold text-gray-400 uppercase tracking-wider block">
+                    Switch Active Pickup
+                  </span>
+                  <div className="space-y-1.5">
+                    {activeRequests.map((r) => (
+                      <button
+                        key={r.id}
+                        onClick={() => setSelectedRequestId(r.id)}
+                        className={`w-full p-3 rounded-2xl text-left text-xs font-semibold flex items-center justify-between transition-all cursor-pointer ${
+                          r.id === selectedRequest.id
+                            ? 'bg-emerald-50 text-emerald-900 border border-emerald-200'
+                            : 'hover:bg-gray-50 text-gray-600 border border-transparent'
+                        }`}
+                      >
+                        <span>{r.trackingCode} · {r.category}</span>
+                        <span className="capitalize text-[11px] text-gray-400">{r.status.replace(/_/g, ' ')}</span>
+                      </button>
+                    ))}
+                  </div>
                 </div>
               )}
+
             </div>
-          </div>
 
-        </div>
+            {/* RIGHT COLUMN: Expansive Full Screen Live Map (7 Cols) */}
+            <div className="lg:col-span-7">
+              <div className="bg-slate-950 rounded-3xl p-6 sm:p-8 text-white shadow-xl border border-slate-800 relative overflow-hidden min-h-[460px] flex flex-col justify-between">
+                
+                {/* SVG Map Grid Background */}
+                <svg className="absolute inset-0 w-full h-full opacity-20 pointer-events-none" xmlns="http://www.w3.org/2000/svg">
+                  <defs>
+                    <pattern id="fullGrid" width="48" height="48" patternUnits="userSpaceOnUse">
+                      <path d="M 48 0 L 0 0 0 48" fill="none" stroke="#475569" strokeWidth="0.8" />
+                    </pattern>
+                  </defs>
+                  <rect width="100%" height="100%" fill="url(#fullGrid)" />
+                  <path d="M 0 200 Q 300 160 600 240 T 1200 260" fill="none" stroke="#0284c7" strokeWidth="8" opacity="0.3" />
+                  <path d="M 80 80 L 320 220 L 640 180 L 900 120" fill="none" stroke="#64748b" strokeWidth="4" />
+                  <path d="M 160 380 L 320 220 L 480 340 L 800 360" fill="none" stroke="#64748b" strokeWidth="4" />
+                  {/* Transit line */}
+                  <path d="M 120 100 Q 320 220 700 280" fill="none" stroke="#10b981" strokeWidth="5" strokeDasharray="10 6" className="animate-pulse" />
+                </svg>
 
-        {/* COMPLETED RECYCLING CERTIFICATE BANNER (If Completed) */}
-        {currentRequest.status === 'completed' && (
-          <div className="p-5 rounded-2xl bg-gradient-to-r from-emerald-950/80 to-teal-950/60 border border-emerald-500/40 space-y-3">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-2">
-                <Award className="h-5 w-5 text-emerald-400" />
-                <span className="text-xs font-extrabold text-white uppercase tracking-wider">
-                  Official Green Recycling Certificate Minted
-                </span>
+                {/* Top Radar Bar */}
+                <div className="relative z-10 flex items-center justify-between">
+                  <div className="flex items-center gap-2 bg-slate-900/90 backdrop-blur-md px-3.5 py-1.5 rounded-xl border border-slate-800">
+                    <Radio className="h-3.5 w-3.5 text-emerald-400 animate-pulse" />
+                    <span className="text-xs font-mono text-emerald-300 font-bold">
+                      PMC GPS Live: Ward {selectedRequest.cityZone.split(',')[0]}
+                    </span>
+                  </div>
+
+                  <span className="text-xs font-mono text-cyan-400 bg-slate-900/90 px-3 py-1.5 rounded-xl border border-slate-800">
+                    Driver ETA: ~{etaMinutes} mins
+                  </span>
+                </div>
+
+                {/* Center Route Diagram */}
+                <div className="relative z-10 my-16 flex items-center justify-around">
+                  {/* Municipal Depot */}
+                  <div className="flex flex-col items-center">
+                    <div className="w-12 h-12 rounded-2xl bg-slate-900 border-2 border-slate-700 flex items-center justify-center text-slate-300 shadow-xl">
+                      <Recycle className="h-6 w-6 text-emerald-400" />
+                    </div>
+                    <span className="text-xs font-bold text-slate-300 mt-2">PMC Depot</span>
+                    <span className="text-[10px] text-slate-500 font-mono">Karve Rd Hub</span>
+                  </div>
+
+                  {/* Electric Vehicle Pulse */}
+                  <div className="flex flex-col items-center">
+                    <div className="relative">
+                      <span className="absolute -inset-3 rounded-full bg-emerald-500/20 animate-ping" />
+                      <div className="w-14 h-14 rounded-2xl bg-gradient-to-tr from-emerald-600 to-teal-500 flex items-center justify-center text-white shadow-2xl shadow-emerald-500/40 ring-4 ring-emerald-400/30">
+                        <Truck className="h-7 w-7" />
+                      </div>
+                    </div>
+                    <span className="text-xs font-mono font-black text-emerald-300 mt-3 bg-emerald-950 px-2.5 py-1 rounded-lg border border-emerald-500/40 shadow-xs">
+                      {driver.vehicleNumber}
+                    </span>
+                    <span className="text-[10px] text-emerald-400 font-semibold mt-0.5">
+                      {driver.name}
+                    </span>
+                  </div>
+
+                  {/* Citizen Doorstep */}
+                  <div className="flex flex-col items-center">
+                    <div className="w-12 h-12 rounded-2xl bg-emerald-500/20 border-2 border-emerald-500 text-emerald-400 flex items-center justify-center shadow-xl">
+                      <MapPin className="h-6 w-6" />
+                    </div>
+                    <span className="text-xs font-bold text-emerald-300 mt-2">Your Home</span>
+                    <span className="text-[10px] text-slate-400 font-mono">Pickup Point</span>
+                  </div>
+                </div>
+
+                {/* Bottom Live Metrics */}
+                <div className="relative z-10 grid grid-cols-2 sm:grid-cols-4 gap-3 pt-4 border-t border-slate-800 text-xs font-mono">
+                  <div className="bg-slate-900/80 p-2.5 rounded-xl border border-slate-800">
+                    <span className="text-slate-400 text-[10px] uppercase font-sans font-bold block">Vehicle Type</span>
+                    <span className="text-white font-bold">{driver.vehicleType}</span>
+                  </div>
+                  <div className="bg-slate-900/80 p-2.5 rounded-xl border border-slate-800">
+                    <span className="text-slate-400 text-[10px] uppercase font-sans font-bold block">Driver Phone</span>
+                    <span className="text-emerald-400 font-bold">{driver.phone}</span>
+                  </div>
+                  <div className="bg-slate-900/80 p-2.5 rounded-xl border border-slate-800">
+                    <span className="text-slate-400 text-[10px] uppercase font-sans font-bold block">Status</span>
+                    <span className="text-amber-300 font-bold capitalize">{selectedRequest.status.replace(/_/g, ' ')}</span>
+                  </div>
+                  <div className="bg-slate-900/80 p-2.5 rounded-xl border border-slate-800">
+                    <span className="text-slate-400 text-[10px] uppercase font-sans font-bold block">CO₂ Saved</span>
+                    <span className="text-teal-300 font-bold">~{selectedRequest.co2OffsetKg} kg</span>
+                  </div>
+                </div>
+
               </div>
-              <span className="text-[11px] font-mono text-emerald-300 bg-emerald-900/40 px-2 py-0.5 rounded border border-emerald-500/30">
-                {currentRequest.certificateId || 'REC-CERT-2026'}
-              </span>
             </div>
 
-            <p className="text-xs text-slate-300">
-              Verified by Flora Institute EcoLoop Depot. Your waste was diverted 100% from landfills, generating{' '}
-              <strong className="text-emerald-400">+{currentRequest.ecoPointsEarned} EcoPoints</strong> and saving{' '}
-              <strong className="text-cyan-400">{currentRequest.co2OffsetKg} kg of CO₂</strong> emissions.
-            </p>
           </div>
         )}
 
       </div>
-
     </div>
   );
 };

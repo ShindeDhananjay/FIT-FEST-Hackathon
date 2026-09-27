@@ -1,29 +1,28 @@
 'use client';
 
 import React, { useState } from 'react';
+import { motion, AnimatePresence } from 'framer-motion';
 import {
-  Recycle,
-  Sparkles,
-  MapPin,
-  Calendar,
-  Clock,
-  User,
-  Phone,
-  FileText,
   CheckCircle2,
   ChevronRight,
   ArrowLeft,
-  Weight,
-  Layers,
-  Info,
-  Apple,
-  Package,
-  Cpu,
-  AlertTriangle,
-  Wrench,
+  Phone,
+  User,
+  Clock,
   Navigation,
+  Leaf,
+  Sparkles,
+  Calendar,
+  MapPin,
+  Check,
+  Plus,
+  Minus,
+  ShieldCheck,
+  Truck,
+  HelpCircle,
+  Award,
 } from 'lucide-react';
-import { WasteCategory, WastePickupRequest } from '@/types/waste';
+import { WasteCategory, WastePickupRequest, CitizenUser } from '@/types/waste';
 import { WASTE_CATEGORIES, PUNE_ZONES, TIME_SLOTS } from '@/constants/wasteCategories';
 
 interface BookingWizardProps {
@@ -32,7 +31,89 @@ interface BookingWizardProps {
   prefilledCategory?: WasteCategory;
   prefilledDescription?: string;
   prefilledWeight?: number;
+  citizenUser?: CitizenUser | null;
 }
+
+interface SimpleCategory {
+  id: WasteCategory;
+  name: string;
+  emoji: string;
+  examples: string;
+  color: string;
+  bgColor: string;
+  borderColor: string;
+  points: number;
+}
+
+const CATEGORIES: SimpleCategory[] = [
+  {
+    id: 'organic',
+    name: 'Food & Garden Waste',
+    emoji: '🥬',
+    examples: 'Vegetable peels, food scraps, fallen garden leaves',
+    color: 'text-emerald-700',
+    bgColor: 'bg-emerald-50/80',
+    borderColor: 'border-emerald-500',
+    points: 10,
+  },
+  {
+    id: 'plastic',
+    name: 'Dry Plastics & Bottles',
+    emoji: '🧴',
+    examples: 'Water bottles, containers, clean packaging wraps',
+    color: 'text-blue-700',
+    bgColor: 'bg-blue-50/80',
+    borderColor: 'border-blue-500',
+    points: 15,
+  },
+  {
+    id: 'paper',
+    name: 'Cardboard & Paper',
+    emoji: '📦',
+    examples: 'Newspapers, courier boxes, books, office paper',
+    color: 'text-amber-800',
+    bgColor: 'bg-amber-50/80',
+    borderColor: 'border-amber-500',
+    points: 12,
+  },
+  {
+    id: 'ewaste',
+    name: 'Electronic Gadgets',
+    emoji: '📱',
+    examples: 'Old phones, chargers, cables, appliances, batteries',
+    color: 'text-purple-700',
+    bgColor: 'bg-purple-50/80',
+    borderColor: 'border-purple-500',
+    points: 40,
+  },
+  {
+    id: 'metal',
+    name: 'Metals & Scrap',
+    emoji: '🥫',
+    examples: 'Beverage cans, tin boxes, steel scrap, foils',
+    color: 'text-slate-700',
+    bgColor: 'bg-slate-100',
+    borderColor: 'border-slate-500',
+    points: 35,
+  },
+  {
+    id: 'hazardous',
+    name: 'Bulbs & Paint Chemicals',
+    emoji: '💡',
+    examples: 'Fluorescent tubes, paint cans, cleaning solvents',
+    color: 'text-rose-700',
+    bgColor: 'bg-rose-50/80',
+    borderColor: 'border-rose-500',
+    points: 25,
+  },
+];
+
+const PRESET_AMOUNTS = [
+  { label: 'Small Bag', sub: '~3 kg', weight: 3 },
+  { label: 'Medium Sack', sub: '~5 kg', weight: 5 },
+  { label: 'Large Box', sub: '~10 kg', weight: 10 },
+  { label: 'Bulk Batch', sub: '~25 kg', weight: 25 },
+];
 
 export const BookingWizard: React.FC<BookingWizardProps> = ({
   onSuccess,
@@ -40,583 +121,652 @@ export const BookingWizard: React.FC<BookingWizardProps> = ({
   prefilledCategory,
   prefilledDescription,
   prefilledWeight,
+  citizenUser,
 }) => {
-  const [step, setStep] = useState<1 | 2 | 3>(1);
-
-  // Form State
+  const [step, setStep] = useState<1 | 2 | 3 | 4>(1);
   const [category, setCategory] = useState<WasteCategory>(prefilledCategory || 'plastic');
-  const [itemDescription, setItemDescription] = useState(
-    prefilledDescription || 'Clean PET plastic water bottles & packaging cardboard'
-  );
   const [estimatedWeightKg, setEstimatedWeightKg] = useState<number>(prefilledWeight || 5);
-  const [quantityUnits, setQuantityUnits] = useState('2 bags');
-
-  // Location State
-  const [cityZone, setCityZone] = useState(PUNE_ZONES[0]);
-  const [pickupAddress, setPickupAddress] = useState(
-    'Flora Institute of Technology, Innovation Wing, Pune'
-  );
-  const [landmark, setLandmark] = useState('Near Academic Block B');
-  const [coords, setCoords] = useState({ lat: 18.3512, lng: 73.8567 });
-  const [gpsDetected, setGpsDetected] = useState(false);
-
-  // Scheduling State
+  const [cityZone, setCityZone] = useState(() => citizenUser?.area || PUNE_ZONES[0]);
+  const [pickupAddress, setPickupAddress] = useState('');
+  const [landmark, setLandmark] = useState('');
   const [scheduledDate, setScheduledDate] = useState(() => {
-    const today = new Date();
-    return today.toISOString().split('T')[0];
+    const tomorrow = new Date();
+    tomorrow.setDate(tomorrow.getDate() + 1);
+    return tomorrow.toISOString().split('T')[0];
   });
-  const [scheduledSlot, setScheduledSlot] = useState(TIME_SLOTS[1]);
-  const [contactName, setContactName] = useState('Dhananjay Shinde');
-  const [contactPhone, setContactPhone] = useState('+91 98223 91023');
-  const [specialInstructions, setSpecialInstructions] = useState(
-    'Please ring the bell upon arrival; bags kept at porch.'
-  );
+  const [scheduledSlot, setScheduledSlot] = useState(TIME_SLOTS[0]);
+  const [contactName, setContactName] = useState(() => citizenUser?.name || 'Dhananjay Shinde');
+  const [contactPhone, setContactPhone] = useState(() => citizenUser?.phone || '+91 98223 91023');
 
-  // Calculated benefits
+  const selectedCategoryMeta = CATEGORIES.find((c) => c.id === category) || CATEGORIES[1];
   const activeCategoryInfo = WASTE_CATEGORIES[category];
   const calculatedPoints = Math.round(estimatedWeightKg * activeCategoryInfo.ecoPointsPerKg);
   const calculatedCo2 = Number((estimatedWeightKg * activeCategoryInfo.co2Factor).toFixed(1));
 
-  // Geolocation trigger
   const handleUseGps = () => {
     if (navigator.geolocation) {
       navigator.geolocation.getCurrentPosition(
         (pos) => {
-          setCoords({ lat: pos.coords.latitude, lng: pos.coords.longitude });
-          setGpsDetected(true);
-          setPickupAddress(`Auto-detected GPS Location: ${pos.coords.latitude.toFixed(4)}, ${pos.coords.longitude.toFixed(4)}`);
+          setPickupAddress(`Flat 402, Near Ferguson College Road, Shivaji Nagar, Pune`);
         },
         () => {
-          setGpsDetected(true);
-          setCoords({ lat: 18.3512, lng: 73.8567 });
+          setPickupAddress(`FC Road, Shivaji Nagar, Pune`);
         }
       );
     } else {
-      setGpsDetected(true);
+      setPickupAddress(`FC Road, Shivaji Nagar, Pune`);
     }
   };
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-
-    const randomSuffix = Math.floor(1000 + Math.random() * 9000);
-    const trackingCode = `FIT-${randomSuffix}`;
-
+    const trackingCode = `ECO-${Math.floor(1000 + Math.random() * 9000)}`;
     const newRequest: WastePickupRequest = {
       id: `REQ-${Date.now()}`,
       trackingCode,
       category,
-      itemDescription,
+      itemDescription: `${selectedCategoryMeta.name} pickup`,
       estimatedWeightKg,
-      quantityUnits,
-      pickupAddress,
+      quantityUnits: `${estimatedWeightKg} kg`,
+      pickupAddress: pickupAddress || `${cityZone}, Pune`,
       cityZone,
       landmark,
-      coordinates: coords,
+      coordinates: { lat: 18.5204, lng: 73.8567 },
       scheduledDate,
       scheduledSlot,
       contactName,
       contactPhone,
-      specialInstructions,
       status: 'submitted',
       createdAt: new Date().toISOString(),
       ecoPointsEarned: calculatedPoints,
       co2OffsetKg: calculatedCo2,
     };
-
     onSuccess(newRequest);
   };
 
-  const getCategoryIcon = (iconName: string) => {
-    switch (iconName) {
-      case 'Apple':
-        return <Apple className="h-5 w-5" />;
-      case 'Package':
-        return <Package className="h-5 w-5" />;
-      case 'Cpu':
-        return <Cpu className="h-5 w-5" />;
-      case 'AlertTriangle':
-        return <AlertTriangle className="h-5 w-5" />;
-      case 'FileText':
-        return <FileText className="h-5 w-5" />;
-      case 'Wrench':
-        return <Wrench className="h-5 w-5" />;
-      default:
-        return <Recycle className="h-5 w-5" />;
-    }
-  };
-
   return (
-    <div className="max-w-4xl mx-auto py-6 px-4 sm:px-6">
-      
-      {/* Top Banner / Problem Statement alignment */}
-      <div className="mb-8 p-6 rounded-3xl bg-gradient-to-r from-emerald-950/70 via-slate-900 to-slate-900 border border-emerald-500/30 shadow-xl relative overflow-hidden">
-        <div className="absolute -right-10 -bottom-10 w-44 h-44 bg-emerald-500/10 rounded-full blur-2xl pointer-events-none" />
-        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+    <div className="w-full min-h-[calc(100vh-4.5rem)] bg-gradient-to-b from-[#f8faf9] to-[#edf3ef] py-6 sm:py-10 px-4 sm:px-6 lg:px-8">
+      <div className="max-w-7xl mx-auto">
+        
+        {/* Top Header Row spanning full width */}
+        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-8 pb-6 border-b border-gray-200/80">
           <div>
-            <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 mb-2">
-              <Sparkles className="h-3.5 w-3.5" />
-              <span>Smart On-Demand Pickup</span>
+            <div className="flex items-center gap-2 mb-1.5">
+              <span className="px-2.5 py-0.5 rounded-full text-xs font-bold bg-emerald-100 text-emerald-800 uppercase tracking-wide">
+                PMC Municipal Waste Booking
+              </span>
+              <span className="text-xs text-gray-500 font-medium">· Doorstep Collection Free ₹0</span>
             </div>
-            <h1 className="text-2xl sm:text-3xl font-extrabold text-white tracking-tight">
-              Schedule a Waste Collection
+            <h1 className="text-3xl sm:text-4xl font-black text-gray-900 tracking-tight">
+              Schedule Your Waste Pickup
             </h1>
-            <p className="text-sm text-slate-300 mt-1 max-w-xl">
-              Select your waste category, specify location, and our eco-fleet will pick it up directly from your doorstep with live GPS tracking.
+            <p className="text-gray-500 text-sm mt-1">
+              Select your materials, tell us where to arrive, and get verified recycling points.
             </p>
           </div>
 
+          {/* Quick AI Trigger */}
           <button
+            type="button"
             onClick={onOpenAiScanner}
-            className="flex items-center justify-center gap-2 px-5 py-3 rounded-2xl bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-400 hover:to-teal-400 text-slate-950 font-bold text-sm shadow-lg shadow-emerald-500/30 transition-transform active:scale-95 cursor-pointer whitespace-nowrap"
+            className="self-start md:self-center inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-white hover:bg-emerald-50 text-emerald-800 border border-emerald-200 shadow-sm text-xs font-bold transition-all cursor-pointer group"
           >
-            <Sparkles className="h-4 w-4" />
-            <span>Try AI Waste Scanner</span>
+            <Sparkles className="h-4 w-4 text-emerald-600 group-hover:rotate-12 transition-transform" />
+            <span>Identify Waste with AI Camera</span>
           </button>
         </div>
 
-        {/* Step Indicator */}
-        <div className="grid grid-cols-3 gap-2 mt-6 pt-6 border-t border-slate-800">
-          <div
-            onClick={() => setStep(1)}
-            className={`cursor-pointer flex items-center gap-2 pb-1 border-b-2 text-xs font-semibold transition-all ${
-              step === 1 ? 'border-emerald-400 text-emerald-300' : 'border-slate-800 text-slate-500'
-            }`}
-          >
-            <span className="h-5 w-5 rounded-full bg-slate-800 flex items-center justify-center text-[10px]">1</span>
-            <span>Category & Items</span>
-          </div>
-          <div
-            onClick={() => step > 1 && setStep(2)}
-            className={`cursor-pointer flex items-center gap-2 pb-1 border-b-2 text-xs font-semibold transition-all ${
-              step === 2 ? 'border-emerald-400 text-emerald-300' : 'border-slate-800 text-slate-500'
-            }`}
-          >
-            <span className="h-5 w-5 rounded-full bg-slate-800 flex items-center justify-center text-[10px]">2</span>
-            <span>Location & Zone</span>
-          </div>
-          <div
-            onClick={() => step > 2 && setStep(3)}
-            className={`cursor-pointer flex items-center gap-2 pb-1 border-b-2 text-xs font-semibold transition-all ${
-              step === 3 ? 'border-emerald-400 text-emerald-300' : 'border-slate-800 text-slate-500'
-            }`}
-          >
-            <span className="h-5 w-5 rounded-full bg-slate-800 flex items-center justify-center text-[10px]">3</span>
-            <span>Schedule & Confirm</span>
-          </div>
-        </div>
-      </div>
+        {/* 2-Column Full Screen Layout */}
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
 
-      <form onSubmit={handleSubmit} className="space-y-6">
-        
-        {/* STEP 1: CATEGORY SELECTION */}
-        {step === 1 && (
-          <div className="space-y-6 animate-fadeIn">
-            <div>
-              <div className="flex items-center justify-between mb-3">
-                <label className="text-sm font-bold text-white flex items-center gap-2">
-                  <Layers className="h-4 w-4 text-emerald-400" />
-                  Select Waste Category
-                </label>
-                <span className="text-xs text-slate-400">Choose the primary material</span>
-              </div>
+          {/* LEFT COLUMN: Main Interactive Form Flow (8 Cols) */}
+          <div className="lg:col-span-8 space-y-6">
 
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
-                {(Object.keys(WASTE_CATEGORIES) as WasteCategory[]).map((catKey) => {
-                  const cat = WASTE_CATEGORIES[catKey];
-                  const isSelected = category === catKey;
+            {/* Stepper Header */}
+            <div className="bg-white p-4 rounded-2xl border border-gray-100 shadow-sm">
+              <div className="grid grid-cols-4 gap-2">
+                {[
+                  { num: 1, title: 'Waste Type', desc: 'Select items' },
+                  { num: 2, title: 'Location', desc: 'Pune address' },
+                  { num: 3, title: 'Schedule', desc: 'Date & time' },
+                  { num: 4, title: 'Confirm', desc: 'Final review' },
+                ].map((s, idx) => {
+                  const isDone = s.num < step;
+                  const isCurrent = s.num === step;
 
                   return (
-                    <div
-                      key={catKey}
-                      onClick={() => setCategory(catKey)}
-                      className={`p-4 rounded-2xl border cursor-pointer transition-all ${
-                        isSelected
-                          ? 'bg-emerald-950/40 border-emerald-500 ring-2 ring-emerald-500/20 shadow-lg shadow-emerald-950/50'
-                          : 'bg-slate-900/60 border-slate-800 hover:border-slate-700 hover:bg-slate-900'
+                    <button
+                      key={s.num}
+                      type="button"
+                      onClick={() => s.num <= step && setStep(s.num as 1 | 2 | 3 | 4)}
+                      disabled={s.num > step}
+                      className={`flex items-center gap-2.5 p-2 rounded-xl text-left transition-all ${
+                        isCurrent
+                          ? 'bg-emerald-50 text-emerald-900 font-bold'
+                          : isDone
+                          ? 'hover:bg-gray-50 cursor-pointer text-gray-700'
+                          : 'opacity-40 cursor-not-allowed text-gray-400'
                       }`}
                     >
-                      <div className="flex items-start justify-between">
-                        <div className={`p-2.5 rounded-xl ${cat.accentBg}`}>
-                          {getCategoryIcon(cat.iconName)}
-                        </div>
-                        {isSelected && (
-                          <CheckCircle2 className="h-5 w-5 text-emerald-400" />
-                        )}
+                      <div
+                        className={`w-8 h-8 rounded-full flex items-center justify-center text-xs font-black transition-all ${
+                          isDone
+                            ? 'bg-emerald-600 text-white'
+                            : isCurrent
+                            ? 'bg-emerald-600 text-white ring-4 ring-emerald-100'
+                            : 'bg-gray-100 text-gray-400'
+                        }`}
+                      >
+                        {isDone ? <Check className="h-4 w-4 stroke-[3]" /> : s.num}
                       </div>
-                      <h3 className="font-bold text-white text-sm mt-3">{cat.name}</h3>
-                      <p className="text-xs text-slate-400 mt-1 line-clamp-2">{cat.tagline}</p>
-
-                      <div className="mt-3 pt-2 border-t border-slate-800/80 flex items-center justify-between text-[11px]">
-                        <span className="text-emerald-400 font-semibold">+{cat.ecoPointsPerKg} pts/kg</span>
-                        <span className="text-slate-400">Save {cat.co2Factor}kg CO₂/kg</span>
+                      <div className="hidden sm:block">
+                        <p className="text-xs font-bold leading-tight">{s.title}</p>
+                        <p className="text-[10px] text-gray-400 font-normal">{s.desc}</p>
                       </div>
-                    </div>
+                    </button>
                   );
                 })}
               </div>
             </div>
 
-            {/* Disposal Instructions Box */}
-            <div className="p-4 rounded-2xl bg-slate-900/80 border border-slate-800 flex items-start gap-3">
-              <Info className="h-5 w-5 text-emerald-400 shrink-0 mt-0.5" />
-              <div className="text-xs">
-                <span className="font-bold text-white block">Proper Segregation Tip for {activeCategoryInfo.name}:</span>
-                <p className="text-slate-300 mt-0.5">{activeCategoryInfo.recyclingInstructions}</p>
-              </div>
-            </div>
+            <form onSubmit={handleSubmit}>
+              <AnimatePresence mode="wait">
 
-            {/* Item Description & Weight Inputs */}
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div>
-                <label className="text-xs font-semibold text-slate-300 block mb-1.5">
-                  Item Description & Notes
-                </label>
-                <input
-                  type="text"
-                  required
-                  value={itemDescription}
-                  onChange={(e) => setItemDescription(e.target.value)}
-                  placeholder="e.g. 20 mineral water bottles, 2 flattened cardboard boxes"
-                  className="w-full px-4 py-2.5 rounded-xl bg-slate-900 border border-slate-800 text-white placeholder-slate-500 text-sm focus:outline-none focus:border-emerald-500"
-                />
-              </div>
-
-              <div>
-                <label className="text-xs font-semibold text-slate-300 block mb-1.5">
-                  Packaging / Volume (e.g., bags, boxes)
-                </label>
-                <input
-                  type="text"
-                  required
-                  value={quantityUnits}
-                  onChange={(e) => setQuantityUnits(e.target.value)}
-                  placeholder="e.g. 2 large bags, 1 cardboard carton"
-                  className="w-full px-4 py-2.5 rounded-xl bg-slate-900 border border-slate-800 text-white placeholder-slate-500 text-sm focus:outline-none focus:border-emerald-500"
-                />
-              </div>
-            </div>
-
-            {/* Weight Slider with Live Incentive preview */}
-            <div className="p-5 rounded-2xl bg-slate-900/90 border border-slate-800 space-y-3">
-              <div className="flex items-center justify-between">
-                <label className="text-xs font-bold text-white flex items-center gap-2">
-                  <Weight className="h-4 w-4 text-emerald-400" />
-                  Estimated Total Weight: <span className="text-emerald-400 text-base">{estimatedWeightKg} kg</span>
-                </label>
-                <span className="text-xs text-slate-400">Approximate is fine</span>
-              </div>
-
-              <input
-                type="range"
-                min="1"
-                max="100"
-                step="0.5"
-                value={estimatedWeightKg}
-                onChange={(e) => setEstimatedWeightKg(parseFloat(e.target.value))}
-                className="w-full h-2 bg-slate-800 rounded-lg appearance-none cursor-pointer accent-emerald-500"
-              />
-
-              <div className="flex items-center justify-between pt-2 border-t border-slate-800 text-xs">
-                <span className="text-slate-400">Green Impact Reward:</span>
-                <div className="flex items-center gap-3">
-                  <span className="font-bold text-emerald-400 bg-emerald-950/60 px-2.5 py-0.5 rounded-md border border-emerald-500/30">
-                    +{calculatedPoints} EcoPoints
-                  </span>
-                  <span className="font-bold text-cyan-400 bg-cyan-950/60 px-2.5 py-0.5 rounded-md border border-cyan-500/30">
-                    ~{calculatedCo2} kg CO₂ Offset
-                  </span>
-                </div>
-              </div>
-            </div>
-
-            {/* Next Button */}
-            <div className="flex justify-end pt-4">
-              <button
-                type="button"
-                onClick={() => setStep(2)}
-                className="flex items-center gap-2 px-6 py-3 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-bold text-sm shadow-lg shadow-emerald-500/20 cursor-pointer"
-              >
-                <span>Proceed to Location</span>
-                <ChevronRight className="h-4 w-4" />
-              </button>
-            </div>
-          </div>
-        )}
-
-        {/* STEP 2: LOCATION DETAILS */}
-        {step === 2 && (
-          <div className="space-y-6 animate-fadeIn">
-            
-            <div className="p-5 rounded-2xl bg-slate-900 border border-slate-800 space-y-4">
-              <div className="flex items-center justify-between">
-                <h3 className="text-sm font-bold text-white flex items-center gap-2">
-                  <MapPin className="h-4 w-4 text-emerald-400" />
-                  Select City Zone & Pickup Address
-                </h3>
-                <button
-                  type="button"
-                  onClick={handleUseGps}
-                  className="flex items-center gap-1.5 text-xs text-emerald-400 hover:text-emerald-300 font-semibold cursor-pointer"
-                >
-                  <Navigation className="h-3.5 w-3.5" />
-                  <span>{gpsDetected ? 'GPS Position Locked' : 'Auto-Detect GPS'}</span>
-                </button>
-              </div>
-
-              <div>
-                <label className="text-xs font-semibold text-slate-300 block mb-1.5">
-                  Designated Service Zone
-                </label>
-                <select
-                  value={cityZone}
-                  onChange={(e) => setCityZone(e.target.value)}
-                  className="w-full px-4 py-2.5 rounded-xl bg-slate-950 border border-slate-800 text-white text-sm focus:outline-none focus:border-emerald-500"
-                >
-                  {PUNE_ZONES.map((zone) => (
-                    <option key={zone} value={zone}>
-                      {zone}
-                    </option>
-                  ))}
-                </select>
-              </div>
-
-              <div>
-                <label className="text-xs font-semibold text-slate-300 block mb-1.5">
-                  Complete Street Address / Building / Room
-                </label>
-                <textarea
-                  required
-                  rows={2}
-                  value={pickupAddress}
-                  onChange={(e) => setPickupAddress(e.target.value)}
-                  placeholder="e.g. Flora Institute of Technology, Innovation Lab 102, Khed-Shivapur Tollway, Pune"
-                  className="w-full px-4 py-2.5 rounded-xl bg-slate-950 border border-slate-800 text-white placeholder-slate-500 text-sm focus:outline-none focus:border-emerald-500"
-                />
-              </div>
-
-              <div>
-                <label className="text-xs font-semibold text-slate-300 block mb-1.5">
-                  Nearby Landmark / Special Gate
-                </label>
-                <input
-                  type="text"
-                  value={landmark}
-                  onChange={(e) => setLandmark(e.target.value)}
-                  placeholder="e.g. Near Main Auditorium Gate 3"
-                  className="w-full px-4 py-2.5 rounded-xl bg-slate-950 border border-slate-800 text-white placeholder-slate-500 text-sm focus:outline-none focus:border-emerald-500"
-                />
-              </div>
-            </div>
-
-            {/* Interactive Campus Map Preview Card */}
-            <div className="p-5 rounded-2xl bg-slate-900 border border-slate-800">
-              <div className="flex items-center justify-between text-xs mb-3">
-                <span className="font-semibold text-slate-300 flex items-center gap-1.5">
-                  <MapPin className="h-3.5 w-3.5 text-emerald-400" />
-                  GIS Dispatch Routing Preview
-                </span>
-                <span className="text-[11px] text-emerald-400 bg-emerald-500/10 px-2 py-0.5 rounded-full border border-emerald-500/20">
-                  Zone: {cityZone.split(' ')[0]}
-                </span>
-              </div>
-
-              <div className="h-36 rounded-xl bg-slate-950 border border-slate-800/80 relative overflow-hidden flex items-center justify-center p-4">
-                {/* Simulated Grid / Map visual */}
-                <div className="absolute inset-0 bg-[radial-gradient(#10b981_1px,transparent_1px)] [background-size:16px_16px] opacity-15" />
-                <div className="relative z-10 text-center">
-                  <div className="inline-flex items-center justify-center h-10 w-10 rounded-full bg-emerald-500/20 text-emerald-400 border border-emerald-500/40 mb-2 animate-bounce">
-                    <MapPin className="h-5 w-5" />
-                  </div>
-                  <p className="text-xs font-bold text-white">{pickupAddress.slice(0, 45)}...</p>
-                  <p className="text-[11px] text-slate-400 mt-0.5">
-                    Lat: {coords.lat.toFixed(4)} | Lng: {coords.lng.toFixed(4)} • Nearest depot: Flora Tech Green Facility (1.2 km)
-                  </p>
-                </div>
-              </div>
-            </div>
-
-            {/* Navigation buttons */}
-            <div className="flex items-center justify-between pt-4">
-              <button
-                type="button"
-                onClick={() => setStep(1)}
-                className="flex items-center gap-2 px-5 py-2.5 rounded-xl bg-slate-900 hover:bg-slate-800 text-slate-300 text-xs font-semibold cursor-pointer"
-              >
-                <ArrowLeft className="h-3.5 w-3.5" />
-                <span>Back</span>
-              </button>
-
-              <button
-                type="button"
-                onClick={() => setStep(3)}
-                className="flex items-center gap-2 px-6 py-3 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-bold text-sm shadow-lg shadow-emerald-500/20 cursor-pointer"
-              >
-                <span>Proceed to Schedule</span>
-                <ChevronRight className="h-4 w-4" />
-              </button>
-            </div>
-
-          </div>
-        )}
-
-        {/* STEP 3: SCHEDULING & CONFIRMATION */}
-        {step === 3 && (
-          <div className="space-y-6 animate-fadeIn">
-            
-            {/* Date & Slot selection */}
-            <div className="p-5 rounded-2xl bg-slate-900 border border-slate-800 space-y-4">
-              <h3 className="text-sm font-bold text-white flex items-center gap-2">
-                <Calendar className="h-4 w-4 text-emerald-400" />
-                Select Preferred Date & Pickup Time Slot
-              </h3>
-
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <div>
-                  <label className="text-xs font-semibold text-slate-300 block mb-1.5">
-                    Collection Date
-                  </label>
-                  <input
-                    type="date"
-                    required
-                    value={scheduledDate}
-                    onChange={(e) => setScheduledDate(e.target.value)}
-                    className="w-full px-4 py-2.5 rounded-xl bg-slate-950 border border-slate-800 text-white text-sm focus:outline-none focus:border-emerald-500"
-                  />
-                </div>
-
-                <div>
-                  <label className="text-xs font-semibold text-slate-300 block mb-1.5">
-                    Contact Phone Number
-                  </label>
-                  <div className="relative">
-                    <Phone className="h-4 w-4 text-slate-500 absolute left-3.5 top-3" />
-                    <input
-                      type="tel"
-                      required
-                      value={contactPhone}
-                      onChange={(e) => setContactPhone(e.target.value)}
-                      placeholder="+91 98223 91023"
-                      className="w-full pl-10 pr-4 py-2.5 rounded-xl bg-slate-950 border border-slate-800 text-white text-sm focus:outline-none focus:border-emerald-500"
-                    />
-                  </div>
-                </div>
-              </div>
-
-              <div>
-                <label className="text-xs font-semibold text-slate-300 block mb-2 flex items-center gap-1.5">
-                  <Clock className="h-3.5 w-3.5 text-emerald-400" />
-                  Available Time Slots
-                </label>
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
-                  {TIME_SLOTS.map((slot) => {
-                    const isSelected = scheduledSlot === slot;
-                    return (
-                      <div
-                        key={slot}
-                        onClick={() => setScheduledSlot(slot)}
-                        className={`p-3 rounded-xl border text-xs cursor-pointer flex items-center justify-between transition-all ${
-                          isSelected
-                            ? 'bg-emerald-950/60 border-emerald-500 text-white font-bold'
-                            : 'bg-slate-950/60 border-slate-800 text-slate-400 hover:border-slate-700'
-                        }`}
-                      >
-                        <span>{slot}</span>
-                        {isSelected && <CheckCircle2 className="h-4 w-4 text-emerald-400 shrink-0" />}
+                {/* STEP 1: CATEGORY & QUANTITY */}
+                {step === 1 && (
+                  <motion.div
+                    key="step1"
+                    initial={{ opacity: 0, y: 10 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    exit={{ opacity: 0, y: -10 }}
+                    className="space-y-6"
+                  >
+                    <div className="bg-white p-6 sm:p-8 rounded-3xl border border-gray-100 shadow-sm space-y-6">
+                      <div>
+                        <h2 className="text-lg font-bold text-gray-900">
+                          1. What waste items are you disposing?
+                        </h2>
+                        <p className="text-xs sm:text-sm text-gray-500 mt-1">
+                          Select the primary material. You can hand over segregated bags directly to our driver.
+                        </p>
                       </div>
-                    );
-                  })}
-                </div>
-              </div>
 
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-2">
-                <div>
-                  <label className="text-xs font-semibold text-slate-300 block mb-1.5">
-                    Contact Person Name
-                  </label>
-                  <div className="relative">
-                    <User className="h-4 w-4 text-slate-500 absolute left-3.5 top-3" />
-                    <input
-                      type="text"
-                      required
-                      value={contactName}
-                      onChange={(e) => setContactName(e.target.value)}
-                      placeholder="Your Name"
-                      className="w-full pl-10 pr-4 py-2.5 rounded-xl bg-slate-950 border border-slate-800 text-white text-sm focus:outline-none focus:border-emerald-500"
-                    />
-                  </div>
-                </div>
+                      {/* 6 Expansive Cards */}
+                      <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3.5">
+                        {CATEGORIES.map((c) => {
+                          const isSelected = category === c.id;
+                          return (
+                            <div
+                              key={c.id}
+                              onClick={() => setCategory(c.id)}
+                              className={`relative p-5 rounded-2xl border-2 cursor-pointer transition-all flex flex-col justify-between group overflow-hidden ${
+                                isSelected
+                                  ? `${c.borderColor} ${c.bgColor} shadow-md scale-[1.02]`
+                                  : 'border-gray-200/80 bg-white hover:border-emerald-300 hover:shadow-xs'
+                              }`}
+                            >
+                              <div className="flex items-start justify-between mb-3">
+                                <span className="text-4xl p-2 rounded-xl bg-white shadow-2xs">
+                                  {c.emoji}
+                                </span>
+                                {isSelected ? (
+                                  <span className="w-6 h-6 rounded-full bg-emerald-600 text-white flex items-center justify-center shadow-xs">
+                                    <Check className="h-3.5 w-3.5 stroke-[3]" />
+                                  </span>
+                                ) : (
+                                  <span className="text-[11px] font-bold text-gray-400 group-hover:text-emerald-600">
+                                    Select
+                                  </span>
+                                )}
+                              </div>
 
-                <div>
-                  <label className="text-xs font-semibold text-slate-300 block mb-1.5">
-                    Special Handover Instructions
-                  </label>
-                  <input
-                    type="text"
-                    value={specialInstructions}
-                    onChange={(e) => setSpecialInstructions(e.target.value)}
-                    placeholder="e.g. Ring bell, handle glass with care"
-                    className="w-full px-4 py-2.5 rounded-xl bg-slate-950 border border-slate-800 text-white text-sm focus:outline-none focus:border-emerald-500"
-                  />
-                </div>
-              </div>
+                              <div>
+                                <h3 className="text-sm font-extrabold text-gray-900 leading-snug">
+                                  {c.name}
+                                </h3>
+                                <p className="text-xs text-gray-500 mt-1 leading-relaxed">
+                                  {c.examples}
+                                </p>
+                              </div>
 
-            </div>
+                              <div className="mt-4 pt-3 border-t border-gray-100 flex items-center justify-between">
+                                <span className="text-[11px] font-bold text-emerald-700 bg-emerald-100 px-2 py-0.5 rounded-md">
+                                  +{c.points} pts/kg
+                                </span>
+                                <span className="text-[10px] text-gray-400 font-semibold">
+                                  Recyclable
+                                </span>
+                              </div>
+                            </div>
+                          );
+                        })}
+                      </div>
 
-            {/* Summary Ticket Card */}
-            <div className="p-5 rounded-2xl bg-gradient-to-r from-emerald-950/40 to-slate-900 border border-emerald-500/30 space-y-3">
-              <div className="flex items-center justify-between">
-                <span className="text-xs font-bold text-emerald-400 uppercase tracking-wider">
-                  Pickup Verification Summary
+                      {/* How much do you have */}
+                      <div className="pt-4 border-t border-gray-100 space-y-3">
+                        <label className="block text-xs font-bold text-gray-700 uppercase tracking-wider">
+                          2. How much volume approximately?
+                        </label>
+
+                        {/* Presets */}
+                        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                          {PRESET_AMOUNTS.map((p) => (
+                            <button
+                              key={p.weight}
+                              type="button"
+                              onClick={() => setEstimatedWeightKg(p.weight)}
+                              className={`p-3 rounded-2xl text-left border-2 transition-all cursor-pointer ${
+                                estimatedWeightKg === p.weight
+                                  ? 'border-emerald-600 bg-emerald-50/80 shadow-xs'
+                                  : 'border-gray-200 bg-white hover:border-gray-300'
+                              }`}
+                            >
+                              <p className="text-xs font-bold text-gray-900">{p.label}</p>
+                              <p className="text-[11px] text-gray-500 mt-0.5 font-medium">{p.sub}</p>
+                            </button>
+                          ))}
+                        </div>
+
+                        {/* Adjuster Counter */}
+                        <div className="flex items-center justify-between p-4 bg-gray-50 rounded-2xl border border-gray-100">
+                          <span className="text-xs font-bold text-gray-700">Custom weight:</span>
+                          <div className="flex items-center gap-3">
+                            <button
+                              type="button"
+                              onClick={() => setEstimatedWeightKg((w) => Math.max(1, w - 1))}
+                              className="w-9 h-9 rounded-xl bg-white border border-gray-200 flex items-center justify-center text-gray-700 hover:bg-gray-100 cursor-pointer shadow-2xs font-bold"
+                            >
+                              <Minus className="h-4 w-4" />
+                            </button>
+                            <span className="text-base font-black text-gray-900 w-16 text-center">
+                              {estimatedWeightKg} kg
+                            </span>
+                            <button
+                              type="button"
+                              onClick={() => setEstimatedWeightKg((w) => w + 1)}
+                              className="w-9 h-9 rounded-xl bg-white border border-gray-200 flex items-center justify-center text-gray-700 hover:bg-gray-100 cursor-pointer shadow-2xs font-bold"
+                            >
+                              <Plus className="h-4 w-4" />
+                            </button>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Action Bar */}
+                    <div className="flex justify-end">
+                      <button
+                        type="button"
+                        onClick={() => setStep(2)}
+                        className="inline-flex items-center gap-2 px-8 py-4 rounded-2xl bg-emerald-600 hover:bg-emerald-700 text-white font-extrabold text-sm shadow-lg shadow-emerald-600/20 transition-all cursor-pointer"
+                      >
+                        <span>Next: Enter Pickup Address</span>
+                        <ChevronRight className="h-4 w-4" />
+                      </button>
+                    </div>
+                  </motion.div>
+                )}
+
+                {/* STEP 2: ADDRESS */}
+                {step === 2 && (
+                  <motion.div
+                    key="step2"
+                    initial={{ opacity: 0, y: 10 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    exit={{ opacity: 0, y: -10 }}
+                    className="space-y-6"
+                  >
+                    <div className="bg-white p-6 sm:p-8 rounded-3xl border border-gray-100 shadow-sm space-y-6">
+                      <div>
+                        <h2 className="text-lg font-bold text-gray-900">
+                          2. Where should the collector arrive?
+                        </h2>
+                        <p className="text-xs sm:text-sm text-gray-500 mt-1">
+                          Our electric collection vehicle will come right to your gate or society entrance.
+                        </p>
+                      </div>
+
+                      {/* Area Select */}
+                      <div>
+                        <label className="block text-xs font-bold text-gray-700 uppercase tracking-wider mb-2">
+                          Pune Municipal Corporation (PMC) Area
+                        </label>
+                        <select
+                          value={cityZone}
+                          onChange={(e) => setCityZone(e.target.value)}
+                          className="w-full px-4 py-3 rounded-xl bg-gray-50 border border-gray-200 text-sm font-semibold text-gray-800 focus:outline-none focus:ring-2 focus:ring-emerald-500 cursor-pointer"
+                        >
+                          {PUNE_ZONES.map((z) => (
+                            <option key={z} value={z}>
+                              📍 {z}
+                            </option>
+                          ))}
+                        </select>
+                      </div>
+
+                      {/* Address */}
+                      <div>
+                        <div className="flex items-center justify-between mb-2">
+                          <label className="text-xs font-bold text-gray-700 uppercase tracking-wider">
+                            Full Street Address / Building / Society
+                          </label>
+                          <button
+                            type="button"
+                            onClick={handleUseGps}
+                            className="text-xs text-emerald-700 hover:text-emerald-800 bg-emerald-50 px-2.5 py-1 rounded-lg border border-emerald-200 font-bold flex items-center gap-1 cursor-pointer"
+                          >
+                            <Navigation className="h-3 w-3" />
+                            <span>Auto-detect GPS Location</span>
+                          </button>
+                        </div>
+                        <textarea
+                          rows={3}
+                          value={pickupAddress}
+                          onChange={(e) => setPickupAddress(e.target.value)}
+                          placeholder="e.g. Flat 302, Sai Residency, Opposite Ferguson College Main Gate, Pune"
+                          required
+                          className="w-full px-4 py-3 rounded-xl bg-gray-50 border border-gray-200 text-sm text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                        />
+                      </div>
+
+                      {/* Landmark */}
+                      <div>
+                        <label className="block text-xs font-bold text-gray-700 uppercase tracking-wider mb-2">
+                          Nearby Landmark (Optional)
+                        </label>
+                        <input
+                          type="text"
+                          value={landmark}
+                          onChange={(e) => setLandmark(e.target.value)}
+                          placeholder="e.g. Near HDFC Bank ATM or Next to Ganpati Mandir"
+                          className="w-full px-4 py-3 rounded-xl bg-gray-50 border border-gray-200 text-sm text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                        />
+                      </div>
+                    </div>
+
+                    <div className="flex gap-4">
+                      <button
+                        type="button"
+                        onClick={() => setStep(1)}
+                        className="px-6 py-4 rounded-2xl bg-white hover:bg-gray-100 text-gray-700 font-bold text-sm border border-gray-200 cursor-pointer"
+                      >
+                        Back
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setStep(3)}
+                        className="flex-1 py-4 rounded-2xl bg-emerald-600 hover:bg-emerald-700 text-white font-extrabold text-sm shadow-lg shadow-emerald-600/20 transition-all cursor-pointer flex items-center justify-center gap-2"
+                      >
+                        <span>Next: Pick Date & Time Slot</span>
+                        <ChevronRight className="h-4 w-4" />
+                      </button>
+                    </div>
+                  </motion.div>
+                )}
+
+                {/* STEP 3: SCHEDULE */}
+                {step === 3 && (
+                  <motion.div
+                    key="step3"
+                    initial={{ opacity: 0, y: 10 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    exit={{ opacity: 0, y: -10 }}
+                    className="space-y-6"
+                  >
+                    <div className="bg-white p-6 sm:p-8 rounded-3xl border border-gray-100 shadow-sm space-y-6">
+                      <div>
+                        <h2 className="text-lg font-bold text-gray-900">
+                          3. When should we come?
+                        </h2>
+                        <p className="text-xs sm:text-sm text-gray-500 mt-1">
+                          Choose a day and time slot convenient for you.
+                        </p>
+                      </div>
+
+                      {/* Date */}
+                      <div>
+                        <label className="block text-xs font-bold text-gray-700 uppercase tracking-wider mb-2">
+                          Pickup Date
+                        </label>
+                        <input
+                          type="date"
+                          value={scheduledDate}
+                          onChange={(e) => setScheduledDate(e.target.value)}
+                          className="w-full px-4 py-3 rounded-xl bg-gray-50 border border-gray-200 text-sm font-semibold text-gray-900 focus:outline-none focus:ring-2 focus:ring-emerald-500 cursor-pointer"
+                        />
+                      </div>
+
+                      {/* Time Slots */}
+                      <div>
+                        <label className="block text-xs font-bold text-gray-700 uppercase tracking-wider mb-2">
+                          Preferred Time Window
+                        </label>
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                          {TIME_SLOTS.map((slot) => {
+                            const isSelected = scheduledSlot === slot;
+                            return (
+                              <div
+                                key={slot}
+                                onClick={() => setScheduledSlot(slot)}
+                                className={`p-4 rounded-2xl border-2 cursor-pointer transition-all flex items-center justify-between ${
+                                  isSelected
+                                    ? 'border-emerald-600 bg-emerald-50 text-gray-900 font-bold shadow-xs'
+                                    : 'border-gray-200 bg-white text-gray-600 hover:border-gray-300'
+                                }`}
+                              >
+                                <div className="flex items-center gap-2.5">
+                                  <Clock className="h-4 w-4 text-emerald-600" />
+                                  <span className="text-xs sm:text-sm">{slot.split('(')[0]}</span>
+                                </div>
+                                {isSelected && <Check className="h-4 w-4 text-emerald-600 stroke-[3]" />}
+                              </div>
+                            );
+                          })}
+                        </div>
+                      </div>
+
+                      {/* Contact details */}
+                      {citizenUser && (
+                        <div className="flex items-center gap-2 p-3 rounded-xl bg-emerald-50 border border-emerald-200/60 text-emerald-800 text-xs">
+                          <CheckCircle2 className="h-4 w-4 text-emerald-600 shrink-0" />
+                          <span>
+                            Auto-filled from your citizen account: <strong>{citizenUser.name}</strong> ({citizenUser.phone})
+                          </span>
+                        </div>
+                      )}
+
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-2">
+                        <div>
+                          <label className="block text-xs font-bold text-gray-700 uppercase tracking-wider mb-2">
+                            Citizen Name
+                          </label>
+                          <input
+                            type="text"
+                            value={contactName}
+                            onChange={(e) => setContactName(e.target.value)}
+                            placeholder="Your full name"
+                            required
+                            className="w-full px-4 py-3 rounded-xl bg-gray-50 border border-gray-200 text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-xs font-bold text-gray-700 uppercase tracking-wider mb-2">
+                            Mobile Number (for SMS & Driver Call)
+                          </label>
+                          <input
+                            type="tel"
+                            value={contactPhone}
+                            onChange={(e) => setContactPhone(e.target.value)}
+                            placeholder="+91 98223 91023"
+                            required
+                            className="w-full px-4 py-3 rounded-xl bg-gray-50 border border-gray-200 text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                          />
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="flex gap-4">
+                      <button
+                        type="button"
+                        onClick={() => setStep(2)}
+                        className="px-6 py-4 rounded-2xl bg-white hover:bg-gray-100 text-gray-700 font-bold text-sm border border-gray-200 cursor-pointer"
+                      >
+                        Back
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setStep(4)}
+                        className="flex-1 py-4 rounded-2xl bg-emerald-600 hover:bg-emerald-700 text-white font-extrabold text-sm shadow-lg shadow-emerald-600/20 transition-all cursor-pointer flex items-center justify-center gap-2"
+                      >
+                        <span>Next: Final Review</span>
+                        <ChevronRight className="h-4 w-4" />
+                      </button>
+                    </div>
+                  </motion.div>
+                )}
+
+                {/* STEP 4: REVIEW & CONFIRM */}
+                {step === 4 && (
+                  <motion.div
+                    key="step4"
+                    initial={{ opacity: 0, y: 10 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    exit={{ opacity: 0, y: -10 }}
+                    className="space-y-6"
+                  >
+                    <div className="bg-white p-6 sm:p-8 rounded-3xl border border-gray-100 shadow-sm space-y-6">
+                      <div className="text-center pb-2">
+                        <span className="text-5xl mb-2 inline-block">{selectedCategoryMeta.emoji}</span>
+                        <h2 className="text-xl font-black text-gray-900">{selectedCategoryMeta.name}</h2>
+                        <p className="text-xs text-gray-500 mt-0.5">Estimated ~{estimatedWeightKg} kg waste</p>
+                      </div>
+
+                      <div className="p-5 rounded-2xl bg-gray-50 border border-gray-100 space-y-3 text-sm">
+                        <div className="flex justify-between items-center">
+                          <span className="text-gray-500 text-xs">Date & Time:</span>
+                          <span className="font-bold text-gray-900">{scheduledDate} · {scheduledSlot.split('(')[0]}</span>
+                        </div>
+                        <div className="flex justify-between items-center">
+                          <span className="text-gray-500 text-xs">Pickup Ward:</span>
+                          <span className="font-bold text-gray-900">{cityZone.split(',')[0]}</span>
+                        </div>
+                        <div className="flex justify-between items-center">
+                          <span className="text-gray-500 text-xs">Doorstep Address:</span>
+                          <span className="font-bold text-gray-900 text-right max-w-[280px] truncate">{pickupAddress || cityZone}</span>
+                        </div>
+                        <div className="flex justify-between items-center">
+                          <span className="text-gray-500 text-xs">Citizen Contact:</span>
+                          <span className="font-bold text-gray-900">{contactName} ({contactPhone})</span>
+                        </div>
+                        <div className="pt-3 border-t border-gray-200 flex justify-between items-center text-base">
+                          <span className="font-extrabold text-emerald-800">Total Pickup Charge:</span>
+                          <span className="font-black text-emerald-700 bg-emerald-100 px-3 py-1 rounded-lg">FREE ₹0</span>
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="flex gap-4">
+                      <button
+                        type="button"
+                        onClick={() => setStep(3)}
+                        className="px-6 py-4 rounded-2xl bg-white hover:bg-gray-100 text-gray-700 font-bold text-sm border border-gray-200 cursor-pointer"
+                      >
+                        Back
+                      </button>
+                      <button
+                        type="submit"
+                        className="flex-1 py-4 rounded-2xl bg-emerald-600 hover:bg-emerald-700 text-white font-black text-base shadow-xl shadow-emerald-600/30 transition-all cursor-pointer flex items-center justify-center gap-2"
+                      >
+                        <CheckCircle2 className="h-5 w-5" />
+                        <span>Confirm & Dispatch Pickup 🚀</span>
+                      </button>
+                    </div>
+                  </motion.div>
+                )}
+
+              </AnimatePresence>
+            </form>
+          </div>
+
+          {/* RIGHT COLUMN: Expansive Sticky Live Order Summary & Impact (4 Cols) */}
+          <div className="lg:col-span-4 space-y-5 lg:sticky lg:top-24">
+
+            {/* Live Card */}
+            <div className="bg-white p-6 rounded-3xl border border-gray-100 shadow-sm space-y-5">
+              <div className="flex items-center justify-between pb-3 border-b border-gray-100">
+                <span className="text-xs font-black uppercase tracking-wider text-gray-400">
+                  Live Order Preview
                 </span>
-                <span className="text-xs text-slate-400">Ready to Dispatch</span>
+                <span className="text-[11px] font-bold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-full border border-emerald-200">
+                  Free Doorstep
+                </span>
               </div>
 
-              <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 pt-2 text-xs">
+              {/* Selected Material Card */}
+              <div className="flex items-center gap-3.5 p-3.5 rounded-2xl bg-gray-50 border border-gray-100">
+                <span className="text-3xl p-2 rounded-xl bg-white shadow-2xs">
+                  {selectedCategoryMeta.emoji}
+                </span>
                 <div>
-                  <span className="text-slate-400 block text-[11px]">Category</span>
-                  <span className="font-bold text-white capitalize">{category}</span>
+                  <h4 className="text-sm font-bold text-gray-900">{selectedCategoryMeta.name}</h4>
+                  <p className="text-xs text-gray-500 font-medium">Estimated: ~{estimatedWeightKg} kg</p>
                 </div>
-                <div>
-                  <span className="text-slate-400 block text-[11px]">Weight & Units</span>
-                  <span className="font-bold text-white">{estimatedWeightKg} kg ({quantityUnits})</span>
+              </div>
+
+              {/* Dynamic Points Earned Counter */}
+              <div className="p-4 rounded-2xl bg-gradient-to-br from-emerald-500 to-teal-600 text-white shadow-md shadow-emerald-500/15 space-y-2">
+                <div className="flex items-center justify-between text-xs text-emerald-100 font-semibold">
+                  <span>EcoPoints Reward</span>
+                  <Award className="h-4 w-4 text-emerald-200" />
                 </div>
-                <div>
-                  <span className="text-slate-400 block text-[11px]">Points Earning</span>
-                  <span className="font-bold text-emerald-400">+{calculatedPoints} EcoPoints</span>
+                <div className="flex items-baseline gap-1">
+                  <span className="text-3xl font-black tracking-tight">+{calculatedPoints}</span>
+                  <span className="text-xs font-bold uppercase tracking-wider text-emerald-200">pts</span>
                 </div>
-                <div>
-                  <span className="text-slate-400 block text-[11px]">CO₂ Offset</span>
-                  <span className="font-bold text-cyan-400">{calculatedCo2} kg</span>
+                <p className="text-[11px] text-emerald-100/90 font-medium pt-1 border-t border-emerald-400/40">
+                  🌱 Offsetting approximately ~{calculatedCo2} kg of carbon emissions.
+                </p>
+              </div>
+
+              {/* Location & Slot Snapshot */}
+              <div className="space-y-2 text-xs text-gray-600">
+                <div className="flex items-center gap-2">
+                  <MapPin className="h-4 w-4 text-emerald-600 shrink-0" />
+                  <span className="truncate">Zone: <strong>{cityZone.split(',')[0]}</strong></span>
                 </div>
+                <div className="flex items-center gap-2">
+                  <Calendar className="h-4 w-4 text-teal-600 shrink-0" />
+                  <span>Date: <strong>{scheduledDate}</strong></span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <Clock className="h-4 w-4 text-blue-600 shrink-0" />
+                  <span>Slot: <strong>{scheduledSlot.split('(')[0]}</strong></span>
+                </div>
+              </div>
+
+              {/* Pune Municipal Assurance Badge */}
+              <div className="pt-3 border-t border-gray-100 flex items-start gap-2.5 text-xs text-gray-500">
+                <ShieldCheck className="h-4 w-4 text-emerald-600 shrink-0 mt-0.5" />
+                <p className="text-[11px] leading-relaxed">
+                  Authorized PMC smart municipal waste partner. Zero disposal fees.
+                </p>
               </div>
             </div>
 
-            {/* Final Action Buttons */}
-            <div className="flex items-center justify-between pt-4">
-              <button
-                type="button"
-                onClick={() => setStep(2)}
-                className="flex items-center gap-2 px-5 py-2.5 rounded-xl bg-slate-900 hover:bg-slate-800 text-slate-300 text-xs font-semibold cursor-pointer"
-              >
-                <ArrowLeft className="h-3.5 w-3.5" />
-                <span>Back</span>
-              </button>
-
-              <button
-                type="submit"
-                className="flex items-center gap-2 px-8 py-3.5 rounded-xl bg-gradient-to-r from-emerald-500 to-teal-400 hover:from-emerald-400 hover:to-teal-300 text-slate-950 font-extrabold text-sm shadow-xl shadow-emerald-500/25 active:scale-95 transition-all cursor-pointer"
-              >
-                <CheckCircle2 className="h-5 w-5" />
-                <span>Confirm & Dispatch Request</span>
-              </button>
+            {/* Help Callout */}
+            <div className="p-4 rounded-2xl bg-white border border-gray-100 flex items-center justify-between text-xs">
+              <div className="flex items-center gap-2 text-gray-600">
+                <HelpCircle className="h-4 w-4 text-gray-400" />
+                <span>Need quick assistance?</span>
+              </div>
+              <span className="font-mono font-bold text-gray-900">1800-233-8888</span>
             </div>
 
           </div>
-        )}
 
-      </form>
+        </div>
 
+      </div>
     </div>
   );
 };

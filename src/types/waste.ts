@@ -87,3 +87,12 @@ export interface CitizenImpactProfile {
   tier: 'Eco Novice' | 'Green Warrior' | 'Zero-Waste Champion';
   rank: number;
 }
+
+export interface CitizenUser {
+  id: string;
+  name: string;
+  phone: string;
+  email?: string;
+  area?: string;
+  ecoPoints: number;
+}
