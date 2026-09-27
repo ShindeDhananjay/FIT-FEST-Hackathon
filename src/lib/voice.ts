@@ -1,157 +1,167 @@
 /**
  * EcoLoop Voice Synthesis — "J.A.R.V.I.S." inspired, Indian-accented assistant.
  *
- * Voice priority:
- *   1. Indian English (en-IN) natural voices (Microsoft Ravi, Neerja Online Natural, Google India English)
- *   2. British English male voices (Daniel, George) — the "Jarvis" formal cadence
- *   3. Any available natural/neural male English voice
- *   4. System default fallback
- *
- * Acoustic tuning: slightly deeper pitch, measured calm rate, full volume.
+ * The trick to sounding natural with browser SpeechSynthesis:
+ *   - SHORT sentences (not one long paragraph — that's what makes it sound robotic)
+ *   - Near-natural speed (0.95–1.0) — slow rates = "can't read" feel
+ *   - Sequential utterances with micro-pauses between them
+ *   - Slightly deeper pitch for authority, but not too low
  */
 
 // ---------------------------------------------------------------------------
-// Voice selection helpers
+// Voice selection
 // ---------------------------------------------------------------------------
 
-/** Priority keywords for voice name matching — order matters (best first). */
 const VOICE_PRIORITY = [
-  // Indian English — best match for "Indian accent"
   'ravi',                         // Microsoft Ravi (en-IN male)
-  'neerja online',                // Microsoft Neerja Online (en-IN, natural female — still better than robot)
-  'google india english',         // Chrome's Indian English
-  'en-in',                        // Generic Indian English tag
-  // British / formal "Jarvis" style
+  'neerja online',                // Microsoft Neerja Online (en-IN natural)
+  'google india english',         // Chrome Indian English
   'microsoft guy online',         // Windows 11 natural male
   'guy online',
-  'daniel',                       // macOS / iOS British male
+  'daniel',                       // macOS British male (Jarvis-like)
   'george',                       // Windows British male
   'microsoft george',
-  'google uk english male',       // Chrome UK male
-  // General high-quality male fallbacks
-  'natural',                      // Any voice tagged "natural"
-  'neural',                       // Any neural voice
-  'microsoft david',              // US male, Windows
+  'google uk english male',
+  'natural',
+  'neural',
+  'microsoft david',
   'microsoft mark',
   'google us english',
-  'alex',                         // macOS US male
+  'alex',
   'oliver',
 ];
 
-/** Words in voice names that indicate female voices — we deprioritize these. */
 const FEMALE_HINTS = ['female', 'zira', 'susan', 'hazel', 'jenny', 'aria', 'sonia', 'libby'];
 
-function isFemaleVoice(name: string): boolean {
-  const lower = name.toLowerCase();
-  return FEMALE_HINTS.some((h) => lower.includes(h));
+function isFemale(name: string): boolean {
+  const l = name.toLowerCase();
+  return FEMALE_HINTS.some((h) => l.includes(h));
 }
 
-function pickBestVoice(voices: SpeechSynthesisVoice[]): SpeechSynthesisVoice | undefined {
-  const english = voices.filter((v) => v.lang.startsWith('en'));
-  if (english.length === 0) return voices[0]; // absolute fallback
+function pickVoice(voices: SpeechSynthesisVoice[]): SpeechSynthesisVoice | undefined {
+  const en = voices.filter((v) => v.lang.startsWith('en'));
+  if (!en.length) return voices[0];
 
-  // 1. Walk priority list
   for (const kw of VOICE_PRIORITY) {
-    const match = english.find(
-      (v) => v.name.toLowerCase().includes(kw) && !isFemaleVoice(v.name)
-    );
-    if (match) return match;
+    const m = en.find((v) => v.name.toLowerCase().includes(kw) && !isFemale(v.name));
+    if (m) return m;
   }
 
-  // 2. Prefer any en-IN voice (even if not in priority list)
-  const indiaVoice = english.find((v) => v.lang === 'en-IN' && !isFemaleVoice(v.name));
-  if (indiaVoice) return indiaVoice;
+  // en-IN fallback
+  const india = en.find((v) => v.lang === 'en-IN' && !isFemale(v.name));
+  if (india) return india;
 
-  // 3. Any non-female English voice
-  const maleFallback = english.find((v) => !isFemaleVoice(v.name));
-  if (maleFallback) return maleFallback;
-
-  // 4. First English voice
-  return english[0];
+  return en.find((v) => !isFemale(v.name)) || en[0];
 }
 
 // ---------------------------------------------------------------------------
-// Message builder — conversational, Jarvis-like
+// Sequential speaking engine — the secret sauce
 // ---------------------------------------------------------------------------
 
-function buildGreeting(name: string, points: number): string {
-  const firstName = name ? name.split(' ')[0] : 'Citizen';
+/**
+ * Speaks an array of short sentences one after another with a small gap.
+ * This sounds 10x more natural than one giant utterance.
+ */
+function speakSequence(
+  lines: string[],
+  voice: SpeechSynthesisVoice | undefined,
+  gapMs = 250
+): void {
+  let index = 0;
 
-  // Vary the greeting so it doesn't sound "duplicate" / repetitive on every login
-  const greetings = [
-    `Hello ${firstName}, welcome back.`,
-    `Good to see you again, ${firstName}.`,
-    `Welcome back, ${firstName}.`,
+  const speakNext = () => {
+    if (index >= lines.length) return;
+
+    const utt = new SpeechSynthesisUtterance(lines[index]);
+    if (voice) utt.voice = voice;
+
+    // Natural Jarvis-like acoustic profile:
+    // Pitch 0.92 — slightly deeper but not comically low
+    // Rate 0.97 — near-natural speed, confident, not sluggish
+    utt.pitch = 0.92;
+    utt.rate = 0.97;
+    utt.volume = 1;
+
+    utt.onend = () => {
+      index++;
+      if (index < lines.length) {
+        // Small pause between sentences — feels like natural breathing
+        setTimeout(speakNext, gapMs);
+      }
+    };
+
+    utt.onerror = () => {
+      // Skip to next sentence on error
+      index++;
+      if (index < lines.length) setTimeout(speakNext, gapMs);
+    };
+
+    window.speechSynthesis.speak(utt);
+  };
+
+  speakNext();
+}
+
+// ---------------------------------------------------------------------------
+// Message builder
+// ---------------------------------------------------------------------------
+
+function buildLines(name: string, points: number): string[] {
+  const first = name ? name.split(' ')[0] : 'Citizen';
+
+  // Randomize the opener so it doesn't repeat every login
+  const openers = [
+    `Hello ${first}, welcome back.`,
+    `Good to see you, ${first}.`,
+    `Welcome back, ${first}.`,
   ];
-  const greeting = greetings[Math.floor(Math.random() * greetings.length)];
+  const opener = openers[Math.floor(Math.random() * openers.length)];
 
-  const pointsLabel = points === 1 ? '1 eco point' : `${points} eco points`;
+  const pointsStr = points === 1 ? '1 eco point' : `${points} eco points`;
 
-  // Construct a natural multi-sentence announcement
-  const lines = [
-    greeting,
-    `Your current score stands at ${pointsLabel}.`,
-    points > 0
-      ? 'Keep up the great work — every bit of waste you recycle makes a difference.'
-      : 'Start recycling today and earn your first eco points.',
-  ];
+  // Each line is short and punchy — Jarvis style
+  const lines = [opener, `Your score is ${pointsStr}.`];
 
-  return lines.join(' ');
+  if (points > 0) {
+    lines.push('Keep recycling and earning rewards.');
+  } else {
+    lines.push('Start recycling to earn your first points.');
+  }
+
+  return lines;
 }
 
 // ---------------------------------------------------------------------------
 // Public API
 // ---------------------------------------------------------------------------
 
-/**
- * Play the login welcome voice note with natural Indian / Jarvis-like accent.
- *
- * @param userName - citizen's display name
- * @param ecoPoints - current EcoPoints balance
- */
 export const playLoginWelcomeVoice = (userName: string, ecoPoints: number): void => {
   if (typeof window === 'undefined' || !('speechSynthesis' in window)) return;
 
   try {
-    // Cancel any ongoing speech first
     window.speechSynthesis.cancel();
 
-    const text = buildGreeting(userName, ecoPoints);
-    const utterance = new SpeechSynthesisUtterance(text);
+    const lines = buildLines(userName, ecoPoints);
 
-    const configureAndSpeak = () => {
+    const fire = () => {
       const voices = window.speechSynthesis.getVoices();
+      const chosen = voices?.length ? pickVoice(voices) : undefined;
 
-      if (voices && voices.length > 0) {
-        const chosen = pickBestVoice(voices);
-        if (chosen) {
-          utterance.voice = chosen;
-          // Log for debugging (removable later)
-          console.info(`[EcoLoop Voice] Using: "${chosen.name}" (${chosen.lang})`);
-        }
+      if (chosen) {
+        console.info(`[EcoLoop Voice] Using: "${chosen.name}" (${chosen.lang})`);
       }
 
-      // Jarvis-like acoustic profile:
-      // - Pitch 0.85: deeper, authoritative tone
-      // - Rate 0.88:  measured, calm delivery — not rushed
-      // - Volume 1:   clear and confident
-      utterance.pitch = 0.85;
-      utterance.rate = 0.88;
-      utterance.volume = 1;
-
-      window.speechSynthesis.speak(utterance);
+      // Speak each sentence separately with pauses — smooth & natural
+      speakSequence(lines, chosen, 300);
     };
 
-    // Voices may load asynchronously (especially Chrome)
     const available = window.speechSynthesis.getVoices();
-    if (available && available.length > 0) {
-      configureAndSpeak();
+    if (available?.length) {
+      fire();
     } else {
-      window.speechSynthesis.onvoiceschanged = () => {
-        configureAndSpeak();
-      };
+      window.speechSynthesis.onvoiceschanged = fire;
     }
   } catch (err) {
-    console.warn('[EcoLoop Voice] Speech synthesis skipped:', err);
+    console.warn('[EcoLoop Voice] Skipped:', err);
   }
 };
